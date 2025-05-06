@@ -1,0 +1,22 @@
+[package]
+name = "rustyStrem"
+version = "0.1.0"
+edition = "2021"
+authors = ["Guy Yagil"]
+description = "A lightweight media streaming server for local networks"
+
+[dependencies]
+# Web Server
+axum = "0.8.4"
+tokio = { version = "1.44.2", features = ["full"] }
+tower-http = { version = "0.6.2", features = ["fs", "trace"] }
+
+# Media Handling
+walkdir = "2.4"
+mime_guess = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Utilities
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
