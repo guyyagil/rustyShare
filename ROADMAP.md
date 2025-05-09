@@ -1,3 +1,6 @@
+For ROADMAP.md, here's the complete updated version:
+
+```markdown
 # RustyStrem Development Roadmap
 
 ## Phase 1: Project Setup and Basic Structure
@@ -7,10 +10,10 @@
 - [x] Create initial README.md
 
 ## Phase 2: Core Server Implementation
-- [ ] Implement basic HTTP server
-- [ ] Add static file serving capability
-- [ ] Set up basic routing
-- [ ] Implement error handling
+- [x] Implement basic HTTP server
+- [x] Add static file serving capability
+- [x] Set up basic routing
+- [x] Implement error handling
 - [ ] Add logging system
 
 ## Phase 3: Media File Handling
@@ -19,6 +22,7 @@
 - [ ] Create media file metadata extraction
 - [ ] Implement basic file streaming
 - [ ] Add support for common media formats
+- [ ] Implement real-time media directory updates
 
 ## Phase 4: Web Interface
 - [ ] Design basic UI layout
@@ -26,6 +30,7 @@
 - [ ] Add media player component
 - [ ] Create responsive design
 - [ ] Implement basic navigation
+- [ ] Add real-time UI updates for new media
 
 ## Phase 5: Streaming Features
 - [ ] Implement range requests
@@ -40,13 +45,17 @@
 - [ ] Add environment variable support
 - [ ] Implement security headers
 - [ ] Add rate limiting
+- [ ] Configure system service security
 
 ## Phase 7: Advanced Features
+- [ ] Set up system service (systemd) for automatic startup
+- [ ] Implement file system watching for real-time updates
 - [ ] Add search functionality
 - [ ] Implement playlists
 - [ ] Add media metadata display
 - [ ] Implement sorting and filtering
 - [ ] Add thumbnail generation
+- [ ] Implement real-time search updates
 
 ## Phase 8: Performance Optimization
 - [ ] Implement caching
@@ -54,6 +63,7 @@
 - [ ] Optimize file reading
 - [ ] Implement connection pooling
 - [ ] Add performance monitoring
+- [ ] Optimize file system watching
 
 ## Phase 9: Testing and Documentation
 - [ ] Write unit tests
@@ -61,6 +71,7 @@
 - [ ] Create API documentation
 - [ ] Add usage examples
 - [ ] Create deployment guide
+- [ ] Document system service setup
 
 ## Phase 10: Final Polish
 - [ ] Code cleanup
@@ -68,6 +79,7 @@
 - [ ] Security audit
 - [ ] Final documentation review
 - [ ] Release preparation
+- [ ] System service reliability testing
 
 ## How to Use This Roadmap
 1. Each phase represents a logical group of related tasks
@@ -104,5 +116,5 @@ rustyStrem/
 │   └── integration/     # Integration tests
 ├── media/              # Default media directory
 ├── config/             # Configuration files
+│   └── systemd/        # System service configuration
 └── docs/              # Documentation
-```
