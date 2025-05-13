@@ -1,8 +1,10 @@
 mod server;
-
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+mod media;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt}; 
+mod cache;
 
 #[tokio::main]
+
 async fn main() {
     
     tracing_subscriber::registry()
@@ -11,7 +13,7 @@ async fn main() {
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
-
    
     server::start_server().await;
-}
+} 
+

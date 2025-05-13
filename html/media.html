@@ -1,7 +1,67 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Media Library</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div class="max-w-4xl mx-auto py-8">
+    <div id="tree" class="bg-white rounded shadow p-6"></div>
+  </div>
 
-<body>
-    <h1>Media Library</h1>
+  <script>
+    async function fetchMediaTree() {
+      const res = await fetch("/api/media.json");
+      const data = await res.json();
+      const container = document.getElementById("tree");
+      container.innerHTML = "";
+      container.appendChild(renderGrid(data));
+    }
+
+    function renderGrid(entry) {
+      // Only render children for the root directory
+      if (!entry.is_dir || !entry.children) return document.createTextNode("No media found.");
+
+      const grid = document.createElement("div");
+      grid.className = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-8";
+
+     for (const child of entry.children) {
+      const item = document.createElement("div");
+      item.className = "flex flex-col items-center cursor-pointer group";
+
+      const icon = document.createElement("div");
+      icon.className = "text-6xl mb-2 transition-transform group-hover:scale-110";
+      if (child.is_dir) {
+        icon.textContent = "📂";
+      } else if (child.file_type === "Audio") {
+        icon.textContent = "🎵";
+      } else if (child.file_type === "Image") {
+        icon.textContent = "🖼️";
+      } else if (child.file_type === "Video") {
+        icon.textContent = "🎬";
+      } else {
+        icon.textContent = "📄";
+      }
+
+      const label = document.createElement("div");
+      label.className = "text-center text-gray-800 text-lg truncate w-28";
+      label.textContent = child.name;
+
+      item.appendChild(icon);
+      item.appendChild(label);
+
+     if (!child.is_dir) {
+      item.onclick = () => window.open(`/api/media/${encodeURIComponent(child.path)}`, "_blank");
+    }
+
+      grid.appendChild(item);
+    }
+          return grid;
+        }
+
+    fetchMediaTree();
+    setInterval(fetchMediaTree, 5000);
+  </script>
 </body>
-</html> 
+</html>

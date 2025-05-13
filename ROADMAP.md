@@ -14,22 +14,22 @@ For ROADMAP.md, here's the complete updated version:
 - [x] Add static file serving capability
 - [x] Set up basic routing
 - [x] Implement error handling
-- [ ] Add logging system
+- [x] Add logging system
 
 ## Phase 3: Media File Handling
-- [ ] Implement media directory scanning
-- [ ] Add file type detection
-- [ ] Create media file metadata extraction
-- [ ] Implement basic file streaming
-- [ ] Add support for common media formats
-- [ ] Implement real-time media directory updates
+- [x] Implement media directory scanning
+- [x] Add file type detection
+- [x] Create media file metadata extraction
+- [x] Implement basic file streaming
+- [x] Add support for common media formats
+- [x] Implement real-time media directory updates
 
 ## Phase 4: Web Interface
-- [ ] Design basic UI layout
-- [ ] Implement media file listing
-- [ ] Add media player component
-- [ ] Create responsive design
-- [ ] Implement basic navigation
+- [x] Design basic UI layout
+- [x] Implement media file listing
+- [?] Add media player component
+- [x] Create responsive design
+- [] Implement basic navigation
 - [ ] Add real-time UI updates for new media
 
 ## Phase 5: Streaming Features

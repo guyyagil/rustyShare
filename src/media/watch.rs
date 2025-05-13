@@ -1,0 +1,39 @@
+use notify::{RecommendedWatcher, RecursiveMode, Watcher, EventKind};
+use std::sync::{Arc, Mutex, mpsc::channel};
+use crate::media::scanner::scan_dir;
+use crate::media::files::FileEntry;
+use std::path::Path;
+use tracing::{info, error};
+
+pub fn start_watcher(media_tree: Arc<Mutex<Option<FileEntry>>>) {
+    let (tx, rx) = channel();
+
+    let mut watcher: RecommendedWatcher = RecommendedWatcher::new(
+        move |res| {
+            if let Err(e) = tx.send(res) {
+                error!("Watcher error sending event: {}", e);
+            }
+        },
+        notify::Config::default(),
+    ).expect("Failed to create watcher");
+
+    watcher
+        .watch(Path::new("media"), RecursiveMode::Recursive)
+        .expect("Failed to watch media directory");
+
+    info!("📡 Watching media directory for changes...");
+
+    for res in rx {
+        if let Ok(event) = res {
+            if matches!(event.kind, EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)) {
+                info!("🔄 Change detected: rescanning media directory...");
+                let new_tree = scan_dir("media");
+                let mut tree_lock = media_tree.lock().unwrap();
+                *tree_lock = new_tree;
+                info!("✅ Media tree updated.");
+            }
+        } else if let Err(e) = res {
+            error!("Watcher channel error: {:?}", e);
+        }
+    }
+}
