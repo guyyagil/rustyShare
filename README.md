@@ -1,31 +1,34 @@
-# RustyStrem
+# RustyShare
 
 ![Rust](https://img.shields.io/badge/Rust-Stable-orange?logo=rust)
 ![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20macOS-informational)
 
-A lightweight, cross-platform media streaming server built with Rust. Stream your local video and audio files to any device on your network using just a web browser—no client app required!
+**RustyShare** is a lightweight, cross-platform local LAN sharing server built with Rust.  
+Host a master PC as a server and let any device on your network access, upload, download, and stream files directly from your browser—no client app required!
 
 ---
 
 ## Features
 
-* 🎥 Stream video and audio files over your LAN
-* 🌐 Modern, browser-based interface (no client install needed)
-* 🔍 Automatic media file discovery
-* 💻 Cross-platform (Linux, Windows, macOS)
-* ⚡ Efficient and lightweight
-* 🔄 Real-time media directory monitoring
-* 🚀 Runs as a system service (Linux)
+* 📁 **Share any file** over your LAN—upload, download, and manage files from any device
+* 🎥 **Stream video and audio** files instantly in your browser
+* 🌐 **Modern, browser-based interface** (no client install needed)
+* 🔍 **Automatic media file discovery**
+* 💻 **Cross-platform** (Linux, Windows, macOS)
+* ⚡ **Efficient and lightweight**
+* 🔄 **Real-time media directory monitoring**
+* 🚀 **Runs as a system service** (Linux)
+* 🔒 **Access your files securely on your local network**
 
 ---
 
 ## How It Works
 
-1. **Drop your media files** (videos, music) into the `media/` folder in this project.
+1. **Drop your files** (videos, music, documents, etc.) into the `media/` folder or upload them via the web interface.
 2. **Run the server** using `cargo run` or set it up as a system service.
 3. **Open a browser** on any device in your LAN and go to `http://<server-ip>:3000`.
-4. **Browse and play** your media instantly!
-5. **Changes are reflected automatically** - no need to restart the server.
+4. **Browse, upload, download, and stream** your files instantly!
+5. **Changes are reflected automatically**—no need to restart the server.
 
 ---
 
@@ -66,21 +69,21 @@ cargo run
 
 > ℹ️ System service setup is currently supported only on Linux.
 
-If you want RustyStrem to start automatically when your system boots:
+If you want RustyShare to start automatically when your system boots:
 
 1. **Create systemd service file:**
-   Create `/etc/systemd/system/rustystrem.service` with:
+   Create `/etc/systemd/system/rustyshare.service` with:
 
    ```ini
    [Unit]
-   Description=RustyStrem Media Server
+   Description=RustyShare File Sharing Server
    After=network.target
 
    [Service]
    Type=simple
    User=YOUR_USERNAME
    WorkingDirectory=/absolute/path/to/rustyStrem
-   ExecStart=/absolute/path/to/rustyStrem/target/release/rustystrem
+   ExecStart=/absolute/path/to/rustyStrem/target/release/rustyshare
    Restart=always
    RestartSec=3
 
@@ -93,20 +96,20 @@ If you want RustyStrem to start automatically when your system boots:
 2. **Enable and start the service:**
 
    ```bash
-   sudo systemctl enable rustystrem
-   sudo systemctl start rustystrem
+   sudo systemctl enable rustyshare
+   sudo systemctl start rustyshare
    ```
 
 3. **Check service status:**
 
    ```bash
-   systemctl status rustystrem
+   systemctl status rustyshare
    ```
 
 4. **View logs:**
 
    ```bash
-   journalctl -u rustystrem -f
+   journalctl -u rustyshare -f
    ```
 
 ### Accessing the Server
@@ -125,11 +128,11 @@ If you want RustyStrem to start automatically when your system boots:
      ip a | grep inet
      ```
 
-### Managing Media Files
+### Managing Files
 
-1. **Add media files:**
+1. **Add files:**
 
-   * Place your video and audio files in the `media/` directory
+   * Place your files in the `media/` directory or upload them via the web interface
    * Files are automatically detected and available in the web interface
 
 2. **Real-time Updates:**
@@ -201,3 +204,4 @@ rustyStrem/
 │   └── systemd/         # System service configuration
 └── docs/                # Documentation
 ```
+````
