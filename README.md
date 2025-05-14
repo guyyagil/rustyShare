@@ -45,10 +45,10 @@ Host a master PC as a server and let any device on your network access, upload, 
 
 ```bash
 # Clone the repository
-git clone https://github.com/guyyagil/rustyStrem.git
+git clone https://github.com/guyyagil/rustyShare.git
 
 # Navigate to the project directory
-cd rustyStrem
+cd rustyShare
 
 # Build the project
 cargo build --release
@@ -82,8 +82,8 @@ If you want RustyShare to start automatically when your system boots:
    [Service]
    Type=simple
    User=YOUR_USERNAME
-   WorkingDirectory=/absolute/path/to/rustyStrem
-   ExecStart=/absolute/path/to/rustyStrem/target/release/rustyshare
+   WorkingDirectory=/absolute/path/to/rustyShare
+   ExecStart=/absolute/path/to/rustyShare/target/release/rustyshare
    Restart=always
    RestartSec=3
 
@@ -132,7 +132,7 @@ If you want RustyShare to start automatically when your system boots:
 
 1. **Add files:**
 
-   * Place your files in the `media/` directory or upload them via the web interface
+   * Place your files in the media directory or upload them via the web interface
    * Files are automatically detected and available in the web interface
 
 2. **Real-time Updates:**
@@ -180,7 +180,7 @@ You can customize the server using environment variables:
 ## Folder Structure
 
 ```text
-rustyStrem/
+rustyShare/
 ├── src/                 # Main source code directory
 │   ├── main.rs          # Application entry point
 │   ├── server/          # Server-related code
@@ -204,4 +204,3 @@ rustyStrem/
 │   └── systemd/         # System service configuration
 └── docs/                # Documentation
 ```
-````
