@@ -1,15 +1,15 @@
 [package]
-name = "rustyStrem"
+name = "rustyShare"
 version = "0.1.0"
 edition = "2021"
 authors = ["Guy Yagil"]
-description = "A lightweight media streaming server for local networks"
+description = "A lightweight sharing/streaming server for local networks"
 
 [dependencies]
 # Web Server
 axum = "0.8.4"
 tokio = { version = "1.44.2", features = ["full"] }
-tower-http = { version = "0.6.2", features = ["fs", "trace"] }
+tower-http = { version = "0.6.2", features = ["fs", "trace", "limit"] }
 
 # Media Handling
 walkdir = "2.4"
@@ -24,4 +24,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio-util = "0.7.15"
 notify = "8.0.0"
 headers = "0.4.0"
-axum-extra = { version = "0.10", features = ["typed-header"] }
+axum-extra = { version = "0.10", features = ["typed-header" , "multipart"] }

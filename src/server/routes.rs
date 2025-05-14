@@ -7,15 +7,18 @@ use axum::{
     response::{IntoResponse, Response},
     extract::{Extension,Path},
     body::Body,
+    extract::DefaultBodyLimit,
 };
-use axum_extra::extract::TypedHeader;
+
+use std::path::PathBuf;
+use axum_extra::extract::{Multipart,TypedHeader};
 use headers::Range;
 use tokio::{fs::File};
 use tokio_util::io::ReaderStream;
 use crate::media::files::FileEntry;
 use std::sync::{Arc, Mutex};
-use super::stream::*;
-
+use super::streaming::*;
+use crate::media::files::*;
 
 pub fn create_router(media_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
     Router::new()
@@ -23,10 +26,12 @@ pub fn create_router(media_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
         .route("/", static_handler("html/home.html"))
         .route("/media", static_handler("html/media.html"))
         .route("/api/media.json", get(media_json))
-         .route("/api/media/{*path}", get(stream_media)) 
+        .route("/api/media/{*path}", get(open)) 
         .route("/health", get(health_check))
+        .route("/api/upload", axum::routing::post(upload_file))
         .fallback(static_handler("html/error.html"))
         .layer(Extension(media_tree))
+        .layer(DefaultBodyLimit::max(1024 * 1024 * 1024)) // 1 GB
 }
 
 
@@ -50,21 +55,13 @@ async fn media_json(
 }
 
 
-async fn stream_media(Path(path): Path<String>, range: Option<TypedHeader<Range>>) -> Response {
-    // Call safe_path with the path argument and handle the Result
+async fn open(Path(path): Path<String>, range: Option<TypedHeader<Range>>) -> Response {
     let safe_path = match safe_path(&path) {
         Ok(p) => p,
         Err(resp) => return resp,
     };
 
-    let file_path = if is_browser_supported(&safe_path) {
-        safe_path.clone()
-    } else {
-        match transcode(&safe_path).await {
-            Ok(p) => p,
-            Err(resp) => return resp,
-        }
-    };
+    let file_path =safe_path.clone(); 
     let mime = get_mime_type(&file_path);
     let file = match File::open(&file_path).await {
         Ok(f) => f,
@@ -86,5 +83,36 @@ async fn stream_media(Path(path): Path<String>, range: Option<TypedHeader<Range>
 }
 
 
-    
+
+async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
+    let upload_dir = PathBuf::from("media");
+
+    loop {
+        let field_result = multipart.next_field().await;
+        let field = match field_result {
+            Ok(Some(f)) => f,
+            Ok(None) => break,
+            Err(e) => {
+                eprintln!("Multipart field read error: {:?}", e);
+                return (StatusCode::BAD_REQUEST, "Invalid multipart stream").into_response();
+            }
+        };
+
+        if let Some(filename) = field.file_name().map(|s| s.to_string()) {
+            let filepath = upload_dir.join(&filename);
+            match field.bytes().await {
+                Ok(data) => {
+                    if let Err(e) = tokio::fs::write(&filepath, &data).await {
+                        return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to save file: {e}")).into_response();
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to read file bytes: {:?}", e);
+                    return (StatusCode::BAD_REQUEST, "Failed to read file content").into_response();
+                }
+            }
+        }
+    }
+    (StatusCode::OK, "File uploaded").into_response()
+}
 

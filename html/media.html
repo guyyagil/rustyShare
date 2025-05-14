@@ -5,63 +5,136 @@
   <title>Media Library</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gradient-to-br from-gray-100 via-blue-100 to-blue-200 min-h-screen">
   <div class="max-w-4xl mx-auto py-8">
-    <div id="tree" class="bg-white rounded shadow p-6"></div>
+    <!-- Search bar above the grid -->
+    <div class="flex justify-center mb-6">
+      <input
+        id="searchInput"
+        type="text"
+        placeholder="Search files..."
+        class="w-full max-w-2xl bg-white text-blue-900 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 shadow"
+        autocomplete="off"
+      />
+    </div>
+    <!-- Add mt-10 for more space above the grid -->
+    <div id="tree" class="bg-white bg-opacity-90 rounded shadow p-6 border border-blue-200 mt-10"></div>
   </div>
-
+  <div class="flex justify-center mb-8">
+    <form id="uploadForm" dir="rtl" class="flex items-center gap-4 bg-white bg-opacity-80 rounded-lg px-6 py-4 shadow border border-blue-200 w-full max-w-2xl" enctype="multipart/form-data">
+      <input type="file" name="file" class="flex-1 bg-gray-100 text-blue-900 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 text-right" required>
+      <button type="submit" class="px-6 py-2 bg-blue-400 text-white rounded-lg font-semibold shadow hover:bg-blue-500 transition-all duration-200">
+        Upload
+      </button>
+    </form>
+  </div>
   <script>
-    async function fetchMediaTree() {
-      const res = await fetch("/api/media.json");
-      const data = await res.json();
-      const container = document.getElementById("tree");
-      container.innerHTML = "";
-      container.appendChild(renderGrid(data));
+document.getElementById('uploadForm').onsubmit = async function(e) {
+  e.preventDefault();
+  const formData = new FormData(this);
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    body: formData
+  });
+  if (res.ok) {
+    alert('Upload successful!');
+    location.reload();
+  } else {
+    alert('Upload failed!');
+  }
+};
+</script>
+  <script>
+let mediaData = null;
+
+async function fetchMediaTree() {
+  const res = await fetch("/api/media.json");
+  mediaData = await res.json();
+  updateGrid();
+}
+
+function updateGrid() {
+  const container = document.getElementById("tree");
+  container.innerHTML = "";
+  const search = document.getElementById("searchInput").value.trim().toLowerCase();
+  container.appendChild(renderGrid(mediaData, search));
+}
+
+function renderGrid(entry, search = "") {
+  if (!entry.is_dir || !entry.children) return document.createTextNode("No media found.");
+
+  const grid = document.createElement("div");
+  grid.className = "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8";
+
+  for (const child of entry.children) {
+    // Filter by prefix (case-insensitive)
+    if (search && !child.name.toLowerCase().startsWith(search)) continue;
+
+    const item = document.createElement("div");
+    item.className =
+      "flex flex-col items-center bg-gradient-to-br from-white via-blue-100 to-blue-200 rounded-2xl shadow-lg p-4 transition-transform duration-200 hover:scale-105 border border-blue-200";
+
+    const icon = document.createElement("div");
+    icon.className =
+      "text-6xl mb-3 transition-transform group-hover:scale-110 text-blue-400 drop-shadow";
+    if (child.is_dir) {
+      icon.textContent = "📂";
+    } else if (child.file_type === "Audio") {
+      icon.textContent = "🎵";
+    } else if (child.file_type === "Image") {
+      icon.textContent = "🖼️";
+    } else if (child.file_type === "Video") {
+      icon.textContent = "🎬";
+    } else {
+      icon.textContent = "📄";
     }
 
-    function renderGrid(entry) {
-      // Only render children for the root directory
-      if (!entry.is_dir || !entry.children) return document.createTextNode("No media found.");
+    const label = document.createElement("div");
+    label.className =
+      "text-center text-blue-900 font-semibold text-base truncate w-full px-2 mb-2";
+    label.title = child.name;
+    label.textContent = child.name;
 
-      const grid = document.createElement("div");
-      grid.className = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-8";
+    item.appendChild(icon);
+    item.appendChild(label);
 
-     for (const child of entry.children) {
-      const item = document.createElement("div");
-      item.className = "flex flex-col items-center cursor-pointer group";
+    if (!child.is_dir) {
+      const btnGroup = document.createElement("div");
+      btnGroup.className = "flex flex-col items-center gap-2 mt-3";
 
-      const icon = document.createElement("div");
-      icon.className = "text-6xl mb-2 transition-transform group-hover:scale-110";
-      if (child.is_dir) {
-        icon.textContent = "📂";
-      } else if (child.file_type === "Audio") {
-        icon.textContent = "🎵";
-      } else if (child.file_type === "Image") {
-        icon.textContent = "🖼️";
-      } else if (child.file_type === "Video") {
-        icon.textContent = "🎬";
-      } else {
-        icon.textContent = "📄";
+      if (child.is_browser_supported) {
+        const showBtn = document.createElement("button");
+        showBtn.textContent = "Show";
+        showBtn.className =
+          "px-4 py-1 bg-blue-600 text-white rounded-full text-sm font-medium shadow hover:bg-blue-700 transition-all duration-150";
+        showBtn.onclick = (e) => {
+          e.stopPropagation();
+          window.open(`/api/media/${encodeURIComponent(child.path)}`, "_blank");
+        };
+        btnGroup.appendChild(showBtn);
       }
 
-      const label = document.createElement("div");
-      label.className = "text-center text-gray-800 text-lg truncate w-28";
-      label.textContent = child.name;
+      const downloadBtn = document.createElement("a");
+      downloadBtn.textContent = "Download";
+      downloadBtn.href = `/api/media/${encodeURIComponent(child.path)}`;
+      downloadBtn.download = child.name;
+      downloadBtn.className =
+        "px-4 py-1 bg-blue-400 text-white rounded-full text-sm font-medium shadow hover:bg-blue-500 transition-all duration-150 inline-block text-center";
 
-      item.appendChild(icon);
-      item.appendChild(label);
-
-     if (!child.is_dir) {
-      item.onclick = () => window.open(`/api/media/${encodeURIComponent(child.path)}`, "_blank");
+      btnGroup.appendChild(downloadBtn);
+      item.appendChild(btnGroup);
     }
 
-      grid.appendChild(item);
-    }
-          return grid;
-        }
+    grid.appendChild(item);
+  }
+  return grid;
+}
 
-    fetchMediaTree();
-    setInterval(fetchMediaTree, 5000);
+// Listen for input changes
+document.getElementById("searchInput").addEventListener("input", updateGrid);
+
+fetchMediaTree();
+setInterval(fetchMediaTree, 5000);
   </script>
 </body>
 </html>

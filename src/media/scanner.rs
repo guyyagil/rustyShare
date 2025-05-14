@@ -1,11 +1,13 @@
 use std::fs;
 use std::path:: Path;
 
-use super::files::FileEntry;
-use super::file_type::*;
+use super::files::*;
+
 
 pub fn scan_dir<P: AsRef<Path>>(path: P) -> Option<FileEntry> {
+    
     let path = path.as_ref();
+    let is_browser_supported = is_browser_supported(path);
     let name = path.file_name()?.to_str()?.to_string();
 
     if name.contains("Zone.Identifier") {
@@ -33,7 +35,7 @@ pub fn scan_dir<P: AsRef<Path>>(path: P) -> Option<FileEntry> {
                 }
             }
         }
-
+        
         Some(FileEntry {
             name,
             path: path_str,
@@ -42,6 +44,7 @@ pub fn scan_dir<P: AsRef<Path>>(path: P) -> Option<FileEntry> {
             children: Some(children),
             size,
             modified,
+            is_browser_supported
         })
     } else {
         Some(FileEntry {
@@ -52,6 +55,7 @@ pub fn scan_dir<P: AsRef<Path>>(path: P) -> Option<FileEntry> {
             children: None,
             size,
             modified,
+            is_browser_supported
         })
     }
 }

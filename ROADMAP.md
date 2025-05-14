@@ -29,11 +29,11 @@ For ROADMAP.md, here's the complete updated version:
 - [x] Implement media file listing
 - [?] Add media player component
 - [x] Create responsive design
-- [] Implement basic navigation
-- [ ] Add real-time UI updates for new media
+- [x] Implement basic navigation
+- [x] Add real-time UI updates for new media
 
 ## Phase 5: Streaming Features
-- [ ] Implement range requests
+- [x] Implement range requests
 - [ ] Add streaming optimization
 - [ ] Implement buffering
 - [ ] Add quality selection (if applicable)
@@ -58,7 +58,7 @@ For ROADMAP.md, here's the complete updated version:
 - [ ] Implement real-time search updates
 
 ## Phase 8: Performance Optimization
-- [ ] Implement caching
+- [] Implement caching
 - [ ] Add compression
 - [ ] Optimize file reading
 - [ ] Implement connection pooling
