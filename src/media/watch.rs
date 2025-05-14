@@ -5,7 +5,7 @@ use crate::media::files::FileEntry;
 use std::path::Path;
 use tracing::{info, error};
 
-pub fn start_watcher(media_tree: Arc<Mutex<Option<FileEntry>>>) {
+pub fn start_watcher(media_tree: Arc<Mutex<Option<FileEntry>>>, media_dir: &str) {
     let (tx, rx) = channel();
 
     let mut watcher: RecommendedWatcher = RecommendedWatcher::new(
@@ -18,7 +18,7 @@ pub fn start_watcher(media_tree: Arc<Mutex<Option<FileEntry>>>) {
     ).expect("Failed to create watcher");
 
     watcher
-        .watch(Path::new("media"), RecursiveMode::Recursive)
+        .watch(Path::new(media_dir), RecursiveMode::Recursive)
         .expect("Failed to watch media directory");
 
     info!("📡 Watching media directory for changes...");
@@ -27,7 +27,7 @@ pub fn start_watcher(media_tree: Arc<Mutex<Option<FileEntry>>>) {
         if let Ok(event) = res {
             if matches!(event.kind, EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)) {
                 info!("🔄 Change detected: rescanning media directory...");
-                let new_tree = scan_dir("media");
+                let new_tree = scan_dir(Path::new(media_dir), Path::new(media_dir));
                 let mut tree_lock = media_tree.lock().unwrap();
                 *tree_lock = new_tree;
                 info!("✅ Media tree updated.");
