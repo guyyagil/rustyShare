@@ -12,7 +12,7 @@ pub async fn start_server() {
     let config = Config::from_env();
 
     // Use file_dir from config
-    let file_dir = config.file_dir.clone();
+    let file_dir = config.file_dir().to_owned();
     let fil_dir_path = Path::new(&file_dir);
 
     let file_tree = Arc::new(Mutex::new(scan_dir(fil_dir_path, fil_dir_path)));
@@ -24,7 +24,7 @@ pub async fn start_server() {
     });
 
     let app = routes::create_router(file_tree.clone());
-    let port: u16 = config.port.parse().unwrap_or(3000);
+    let port: u16 = config.port().parse().unwrap();
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
 
     info!("🚀 Server starting on {}", addr);

@@ -1,9 +1,9 @@
 use std::env;
 
 pub struct Config {
-    pub file_dir: String,
-    pub port: String,
-    pub password: String
+    file_dir: String,
+    port: String,
+    password: String
 }
 
 impl Config {
@@ -14,4 +14,14 @@ impl Config {
             password : env::var("PASSWORD").unwrap_or_else(|_| "changeme".to_string()),
         }
     }
+    pub fn file_dir(&self) -> &str {
+        &self.file_dir
+    }
+    pub fn port(&self) -> &str {
+        &self.port
+    }
+    pub fn password(&self) -> &str {
+        &self.password
+    }
 }
+

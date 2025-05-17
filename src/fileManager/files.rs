@@ -66,13 +66,13 @@ pub async fn file_size(f :&File) -> u64 {
     }
 }
 pub fn safe_path<P: AsRef<Path>>(path: P) -> Result<PathBuf, Response> {
-    let media_dir = std::fs::canonicalize("media")
-        .unwrap_or_else(|_| PathBuf::from("media"));
+    let master_dir = std::fs::canonicalize("master")
+        .unwrap_or_else(|_| PathBuf::from("master"));
 
-    let joined_path = media_dir.join(path.as_ref());
+    let joined_path = master_dir.join(path.as_ref());
 
     match joined_path.canonicalize() {
-        Ok(canonical) if canonical.starts_with(&media_dir) => Ok(canonical),
+        Ok(canonical) if canonical.starts_with(&master_dir) => Ok(canonical),
         _ => Err((StatusCode::FORBIDDEN, "Forbidden").into_response()),
     }
 }

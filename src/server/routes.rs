@@ -17,6 +17,7 @@ use tokio_util::io::ReaderStream;
 use std::sync::{Arc, Mutex};
 use super::streaming::*;
 use crate::fileManager::files::*;
+use crate::utils::config::Config;
 
 
 #[derive(serde::Deserialize)]
@@ -32,7 +33,7 @@ pub fn create_router(media_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
         .route("/login", axum::routing::post(login))
         .route("/master", get(media_protected))
         .route("/api/master.json", get(media_json))
-        .route("/api/master/path", get(open))
+        .route("/api/master/{*path}", get(open))
         .route("/health", get(health_check))
         .route("/api/upload", axum::routing::post(upload_file))
         .fallback(static_handler("html/error.html"))
@@ -120,7 +121,7 @@ async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
 }
 #[axum::debug_handler]
 async fn login(cookies: Cookies, Form(form): Form<LoginForm>) -> impl IntoResponse {
-    if form.password == "changeme" {
+    if form.password == Config::from_env().password() {
         let mut cookie = Cookie::new("auth", "1");
         cookie.set_path("/");
         cookie.set_max_age(cookie::time::Duration::hours(12)); // 1 day
