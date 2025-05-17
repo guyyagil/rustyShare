@@ -18,15 +18,14 @@ use std::sync::{Arc, Mutex};
 use super::streaming::*;
 use crate::fileManager::files::*;
 use crate::utils::config::Config;
-
+use tracing::info;
 
 #[derive(serde::Deserialize)]
 struct LoginForm {
     password: String,
 }
-
-
-//create a router with all the routes , accepting a media tree shared state as an argument
+// Creates and configures the application router with all routes.
+// Accepts a shared `media_tree` state for media file management.
 pub fn create_router(media_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
     Router::new()
         .route("/", static_handler("html/home.html"))
@@ -36,13 +35,15 @@ pub fn create_router(media_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
         .route("/api/master/{*path}", get(open))
         .route("/health", get(health_check))
         .route("/api/upload", axum::routing::post(upload_file))
+        .route("/api/update", axum::routing::post(update_file))
         .fallback(static_handler("html/error.html"))
         .layer(CookieManagerLayer::new()) // <-- Add this line
         .layer(Extension(media_tree))
         .layer(DefaultBodyLimit::max(1024 * 1024 * 1024)) 
 }
 
-//generic handler fucntion , can serve all routes that does not require any special handling
+// Generic handler for serving static HTML content.
+// Used for routes that do not require dynamic logic
 fn static_handler(path: &'static str) -> MethodRouter {
     get(move || async move  {
         let content = std::fs::read_to_string(path)
@@ -75,6 +76,7 @@ async fn open(Path(path): Path<String>, range: Option<TypedHeader<Range>>) -> Re
         Ok(f) => f,
         Err(_) => return (StatusCode::NOT_FOUND, "File not found").into_response(),
     };
+    
     let file_size = file_size(&file).await;
 
      if let Some(TypedHeader(range)) = range {
@@ -90,29 +92,91 @@ async fn open(Path(path): Path<String>, range: Option<TypedHeader<Range>>) -> Re
     }
 }
 
-//uploading a file to the server
-async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
-    let upload_dir = PathBuf::from("master");
+pub async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
+    let mut target_path: Option<String> = None;
+    let mut file_data: Option<(String, bytes::Bytes)> = None;
 
-    loop {
-        let field_result = multipart.next_field().await;
-        let field = match field_result {
-            Ok(Some(f)) => f,
-            Ok(None) => break,
-            Err(e) => {
-                eprintln!("Multipart field read error: {:?}", e);
-                return (StatusCode::BAD_REQUEST, "Invalid multipart stream").into_response();
+    while let Some(field) = multipart.next_field().await.unwrap_or(None) {
+        if let Some(name) = field.name() {
+            if name == "target_path" {
+                target_path = Some(field.text().await.unwrap_or_default());
+                info!("✅ Received target_path: {:?}", target_path);
+                continue;
             }
-        };
 
-        if let Some(filename) = field.file_name().map(|s| s.to_string()) {
-            let filepath = upload_dir.join(&filename);
-            match field.bytes().await {
-                Ok(data) => {
-                    if let Err(e) = tokio::fs::write(&filepath, &data).await {
-                        return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to save file: {e}")).into_response();
+            if name == "file" {
+                if let Some(filename) = field.file_name().map(|s| s.to_string()) {
+                    match field.bytes().await {
+                        Ok(data) => {
+                            file_data = Some((filename, data));
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to read file bytes: {:?}", e);
+                            return (StatusCode::BAD_REQUEST, "Failed to read file content").into_response();
+                        }
                     }
                 }
+            }
+        }
+    }
+
+    // Make sure we got both parts
+    let (filename, data) = match file_data {
+        Some(pair) => pair,
+        None => return (StatusCode::BAD_REQUEST, "Missing file").into_response(),
+    };
+
+    let rel_path = if let Some(ref dir) = target_path {
+        if dir.is_empty() {
+            filename.clone()
+        } else {
+            format!("{}/{}", dir.trim_matches('/'), filename)
+        }
+    } else {
+        filename.clone()
+    };
+
+    info!("➡️ Final relative path: {}", rel_path);
+
+    let filepath = match safe_path(&rel_path) {
+        Ok(p) => p,
+        Err(resp) => return resp,
+    };
+
+    info!("🧩 Resolved filesystem path: {:?}", filepath);
+
+    if filepath.exists() {
+        return (StatusCode::CONFLICT, "File already exists").into_response();
+    }
+
+    if let Some(parent) = filepath.parent() {
+        if !parent.exists() {
+            return (StatusCode::BAD_REQUEST, "Target folder does not exist").into_response();
+        }
+    }
+
+    if let Err(e) = tokio::fs::write(&filepath, &data).await {
+        return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to save file: {e}")).into_response();
+    }
+
+    (StatusCode::OK, "File uploaded").into_response()
+}
+
+// --- New update route handler ---
+async fn update_file(mut multipart: Multipart) -> impl IntoResponse {
+    let mut replace_path: Option<String> = None;
+    let mut file_bytes: Option<bytes::Bytes> = None;
+
+    while let Some(field) = multipart.next_field().await.unwrap_or(None) {
+        if let Some(name) = field.name() {
+            if name == "replace_path" {
+                replace_path = Some(field.text().await.unwrap_or_default());
+                continue;
+            }
+        }
+        if field.file_name().is_some() {
+            match field.bytes().await {
+                Ok(data) => file_bytes = Some(data),
                 Err(e) => {
                     eprintln!("Failed to read file bytes: {:?}", e);
                     return (StatusCode::BAD_REQUEST, "Failed to read file content").into_response();
@@ -120,7 +184,28 @@ async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
             }
         }
     }
-    (StatusCode::OK, "File uploaded").into_response()
+
+    if let (Some(rp), Some(data)) = (replace_path, file_bytes) {
+        let filepath = match safe_path(&rp) {
+            Ok(p) => p,
+            Err(resp) => return resp,
+        };
+
+        if filepath.exists() {
+            if let Ok(metadata) = std::fs::metadata(&filepath) {
+                if metadata.is_file() {
+                    let _ = std::fs::remove_file(&filepath);
+                }
+            }
+        }
+
+        if let Err(e) = tokio::fs::write(&filepath, &data).await {
+            return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to update file: {e}")).into_response();
+        }
+        (StatusCode::OK, "File updated").into_response()
+    } else {
+        (StatusCode::BAD_REQUEST, "No file updated").into_response()
+    }
 }
 
 //password protected login route and create authentication cookie
