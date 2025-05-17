@@ -4,7 +4,8 @@ use crate::fileManager::scanner::scan_dir;
 use crate::fileManager::files::FileEntry;
 use std::path::Path;
 use tracing::{info, error};
-
+//watching and handling file changes in the media director
+//rescanning the directory when changes are detected
 pub fn start_watcher(media_tree: Arc<Mutex<Option<FileEntry>>>, media_dir: &str) {
     let (tx, rx) = channel();
 

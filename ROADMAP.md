@@ -44,17 +44,15 @@ For ROADMAP.md, here's the complete updated version:
 
 ## Phase 7: Advanced Features
 - [ ] Set up system service (systemd) for automatic startup
-- [ ] Implement file system watching for real-time updates
-- [ ] Add search functionality
-- [ ] Implement playlists
+- [x] Implement file system watching for real-time updates
+- [x] Add search functionality
 - [ ] Add media metadata display
 - [ ] Implement sorting and filtering
 - [ ] Add thumbnail generation
-- [ ] Implement real-time search updates
+
 
 ## Phase 8: Performance Optimization
-- [] Implement caching
-- [ ] Add compression
+- [x] Implement caching
 - [ ] Optimize file reading
 - [ ] Implement connection pooling
 - [ ] Add performance monitoring

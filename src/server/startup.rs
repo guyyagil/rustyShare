@@ -6,7 +6,7 @@ use crate::fileManager::scanner::scan_dir;
 use crate::utils::config::Config;
 use std::path::Path;
 
-
+/// Starts the server and initializes the file tree watcher.
 pub async fn start_server() {
     // Load config from environment
     let config = Config::from_env();
@@ -18,7 +18,7 @@ pub async fn start_server() {
     let file_tree = Arc::new(Mutex::new(scan_dir(fil_dir_path, fil_dir_path)));
     let watcher_tree = file_tree.clone();
     
-
+    // Start the file watcher in a separate thread
     std::thread::spawn(move || {
         crate::fileManager::watch::start_watcher(watcher_tree, &(file_dir.clone()));
     });

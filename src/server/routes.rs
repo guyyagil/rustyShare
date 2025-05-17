@@ -26,7 +26,7 @@ struct LoginForm {
 }
 
 
-
+//create a router with all the routes , accepting a media tree shared state as an argument
 pub fn create_router(media_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
     Router::new()
         .route("/", static_handler("html/home.html"))
@@ -42,6 +42,7 @@ pub fn create_router(media_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
         .layer(DefaultBodyLimit::max(1024 * 1024 * 1024)) 
 }
 
+//generic handler fucntion , can serve all routes that does not require any special handling
 fn static_handler(path: &'static str) -> MethodRouter {
     get(move || async move  {
         let content = std::fs::read_to_string(path)
@@ -61,6 +62,7 @@ async fn media_json(
     Json(tree.clone())
 }
 
+// open supported browser files in web view 
 async fn open(Path(path): Path<String>, range: Option<TypedHeader<Range>>) -> Response {
     let safe_path = match safe_path(&path) {
         Ok(p) => p,
@@ -88,6 +90,7 @@ async fn open(Path(path): Path<String>, range: Option<TypedHeader<Range>>) -> Re
     }
 }
 
+//uploading a file to the server
 async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
     let upload_dir = PathBuf::from("master");
 
@@ -119,7 +122,8 @@ async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
     }
     (StatusCode::OK, "File uploaded").into_response()
 }
-#[axum::debug_handler]
+
+//password protected login route and create authentication cookie
 async fn login(cookies: Cookies, Form(form): Form<LoginForm>) -> impl IntoResponse {
     if form.password == Config::from_env().password() {
         let mut cookie = Cookie::new("auth", "1");
@@ -132,6 +136,8 @@ async fn login(cookies: Cookies, Form(form): Form<LoginForm>) -> impl IntoRespon
     }
 }
 
+
+//check if the user is authenticated using the cookie created by the login route
 async fn media_protected(cookies: Cookies) -> impl IntoResponse {
     if cookies.get("auth").map(|c| c.value().to_owned()) == Some("1".to_string()) {
         let content = std::fs::read_to_string("html/master.html")

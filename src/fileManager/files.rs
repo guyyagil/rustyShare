@@ -5,7 +5,13 @@ use std::fs;
 use chrono::{DateTime, Utc};
 use tokio::fs::File;
 use std::path::PathBuf;
-use axum::{ response::{ IntoResponse, Response}, http::StatusCode};
+use axum::{ 
+    response::{ IntoResponse, Response}, 
+    http::StatusCode};
+use crate::utils::config::Config;
+
+use std::path::Path;
+// directory and files representation for the media tree
 #[derive(Debug, Serialize, Clone)]
 pub struct FileEntry {
     pub name: String,
@@ -19,6 +25,7 @@ pub struct FileEntry {
 }
 
 
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy,Serialize)]
 pub enum FileType {
     Video,
@@ -27,9 +34,10 @@ pub enum FileType {
     Other,
 }
 
-use std::path::Path;
+//////////////////////////////////helper functions to get file properties/////////////////////////
 
-pub fn detect_file_type(path: &Path, is_dir: bool) -> FileType {
+pub fn detect_file_type<P : AsRef<Path>>(path: P, is_dir: bool) -> FileType {
+    let path = path.as_ref();
     if is_dir {
         FileType::Other
     } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
@@ -44,11 +52,15 @@ pub fn detect_file_type(path: &Path, is_dir: bool) -> FileType {
     }
 }
 
-pub fn get_file_size(path: &Path) -> Option<u64> {
+
+pub fn get_file_size<P : AsRef<Path>>(path: P) -> Option<u64> {
+    let path = path.as_ref();
     fs::metadata(path).ok().map(|m| m.len())
 }
 
-pub fn get_modified_time(path: &Path) -> Option<String> {
+
+pub fn get_modified_time<P :AsRef<Path>>(path: P) -> Option<String> {
+    let path = path.as_ref();
     let metadata = fs::metadata(path).ok()?;
     let modified = metadata.modified().ok()?;
     let datetime: DateTime<Utc> = modified.into();
@@ -66,9 +78,8 @@ pub async fn file_size(f :&File) -> u64 {
     }
 }
 pub fn safe_path<P: AsRef<Path>>(path: P) -> Result<PathBuf, Response> {
-    let master_dir = std::fs::canonicalize("master")
-        .unwrap_or_else(|_| PathBuf::from("master"));
-
+    let config = Config::from_env();
+    let master_dir = PathBuf::from(config.file_dir());
     let joined_path = master_dir.join(path.as_ref());
 
     match joined_path.canonicalize() {
@@ -76,6 +87,7 @@ pub fn safe_path<P: AsRef<Path>>(path: P) -> Result<PathBuf, Response> {
         _ => Err((StatusCode::FORBIDDEN, "Forbidden").into_response()),
     }
 }
+
 pub fn is_browser_supported<P: AsRef<Path>>(path: P) -> bool {
     let path = path.as_ref();
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
