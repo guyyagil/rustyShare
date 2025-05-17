@@ -7,12 +7,12 @@ description = "A lightweight sharing/streaming server for local networks"
 
 [dependencies]
 # Web Server
-axum = "0.8.4"
+axum = { version = "0.8.4", features = ["macros"] }
+
 tokio = { version = "1.44.2", features = ["full"] }
 tower-http = { version = "0.6.2", features = ["fs", "trace", "limit"] }
 
 # Media Handling
-walkdir = "2.4"
 mime_guess = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -24,4 +24,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio-util = "0.7.15"
 notify = "8.0.0"
 headers = "0.4.0"
-axum-extra = { version = "0.10", features = ["typed-header" , "multipart"] }
+axum-extra = { version = "0.10", features = ["typed-header" , "multipart","cookie"] }
+tower-cookies = "0.11" 
+cookie = "0.18.1"

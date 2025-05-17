@@ -42,7 +42,7 @@ pub async fn build_range_response(mut file: File,file_size: u64,mime: &mime::Mim
             return (StatusCode::RANGE_NOT_SATISFIABLE, "Invalid range").into_response();
         }
 
-        let stream = ReaderStream::with_capacity(file.take(chunk_size), 16 * 1024);
+        let stream = ReaderStream::with_capacity(file.take(chunk_size), 128 * 1024);
 
         Response::builder()
             .status(StatusCode::PARTIAL_CONTENT)

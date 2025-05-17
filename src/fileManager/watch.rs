@@ -1,7 +1,7 @@
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, EventKind};
 use std::sync::{Arc, Mutex, mpsc::channel};
-use crate::media::scanner::scan_dir;
-use crate::media::files::FileEntry;
+use crate::fileManager::scanner::scan_dir;
+use crate::fileManager::files::FileEntry;
 use std::path::Path;
 use tracing::{info, error};
 

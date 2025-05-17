@@ -150,14 +150,15 @@ You can customize the server using environment variables:
 
 * `MEDIA_DIR` — Path to your media directory (default: `./media`)
 * `PORT` — Server port (default: `3000`)
+* `PASSWORD` — Access password for the web interface (default: `changeme`)
 * `RUST_LOG` — Logging level (default: `info`)
 
 ### Examples
 
-1. **Running with custom port:**
+1. **Running with custom port and password:**
 
    ```bash
-   PORT=8080 cargo run
+   PORT=8080 PASSWORD=your_secure_password cargo run
    ```
 
 2. **Running with custom media directory:**
@@ -173,7 +174,21 @@ You can customize the server using environment variables:
    [Service]
    Environment="MEDIA_DIR=/path/to/your/media"
    Environment="PORT=8080"
+   Environment="PASSWORD=your_secure_password"
    ```
+
+---
+
+## Security Features
+
+- **Password Protection:**  
+  Access to the web interface is protected by a password, which you can set using the `PASSWORD` environment variable. This prevents unauthorized users on your network from accessing your files.
+
+- **Cookie-based Authentication:**  
+  After a successful login, the server issues a secure cookie that keeps you logged in for 12 hours. As long as the cookie is valid, you won't need to re-enter the password.
+
+- **Session Expiry:**  
+  The authentication cookie automatically expires after 12 hours, requiring users to log in again for continued access.
 
 ---
 
@@ -181,26 +196,32 @@ You can customize the server using environment variables:
 
 ```text
 rustyShare/
-├── src/                 # Main source code directory
-│   ├── main.rs          # Application entry point
-│   ├── server/          # Server-related code
-│   │   ├── mod.rs       # Server module definition
-│   │   └── routes.rs    # Route handlers
-│   ├── media/           # Media handling code
-│   │   ├── mod.rs       # Media module definition
-│   │   └── scanner.rs   # Media file scanning logic
-│   └── utils/           # Utility functions
-│       ├── mod.rs       # Utils module definition
-│       └── config.rs    # Configuration handling
-├── templates/           # HTML templates
-│   └── index.html       # Main web interface
-├── static/              # Static assets
-│   ├── css/             # Stylesheets
-│   └── js/              # JavaScript files
-├── tests/               # Test files
-│   └── integration/     # Integration tests
-├── media/               # Default media directory
-├── config/              # Configuration files
-│   └── systemd/         # System service configuration
-└── docs/                # Documentation
+├── src/                         # Main source code directory
+│   ├── main.rs                  # Application entry point
+│   ├── server/                  # Server-related code
+│   │   ├── mod.rs               # Server module definition
+│   │   ├── routes.rs            # Route handlers (web endpoints)
+│   │   ├── auth.rs              # Authentication logic
+│   │   ├── startup.rs           # Server startup logic
+│   │   └── streaming.rs         # Media streaming logic
+│   ├── fileManager/             # File management logic
+│   │   ├── mod.rs               # File manager module definition
+│   │   ├── files.rs             # File operations and helpers
+│   │   ├── scanner.rs           # Directory scanning logic
+│   │   └── watch.rs             # Directory watching logic
+│   └── utils/                   # Utility functions
+│       ├── mod.rs               # Utils module definition
+│       └── config.rs            # Configuration handling
+├── html/                        # HTML files for the web interface
+│   ├── home.html                # Home/login page
+│   └── master.html              # Main interface after login
+├── static/                      # Static assets
+│   ├── css/                     # Stylesheets
+│   └── js/                      # JavaScript files
+├── tests/                       # Test files
+├── media/                       # Default media directory (user files)
+├── config/                      # Configuration files
+│   └── systemd/                 # System service configuration
+├── README.md                    # Project documentation
+└── Cargo.toml                   # Rust project manifest
 ```

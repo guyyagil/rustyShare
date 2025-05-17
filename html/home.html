@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>RustyStrem - Home</title>
+  <title>RustyShare - Home</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-gray-100 via-blue-100 to-blue-200 flex items-center justify-center">
@@ -11,12 +11,66 @@
       Welcome to<br>
       <span class="block text-blue-500 text-5xl mt-2">RustyShare!</span>
     </h1>
-    <button
-      onclick="window.location.href='/media'"
-      class="mt-4 px-8 py-3 bg-blue-400 text-white text-lg font-semibold rounded-lg shadow hover:bg-blue-500 transition-all duration-200"
-    >
-      Go to Media
-    </button>
+    <form id="loginForm" class="w-full flex flex-col items-center">
+      <input
+        type="password"
+        name="password"
+        id="passwordInput"
+        placeholder="Enter access code"
+        class="mt-4 px-4 py-2 border border-blue-300 rounded-lg text-lg text-center focus:outline-none focus:ring-2 focus:ring-blue-400 w-full"
+        required
+      />
+      <button
+        type="submit"
+        class="mt-4 px-8 py-3 bg-blue-400 text-white text-lg font-semibold rounded-lg shadow hover:bg-blue-500 transition-all duration-200"
+      >
+        Enter
+      </button>
+    </form>
+    <div id="errorMsg" class="mt-2 text-red-600 font-semibold hidden">Wrong access code</div>
   </div>
+  <script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Check for auth cookie
+  function getCookie(name) {
+    return document.cookie.split('; ').find(row => row.startsWith(name + '='))?.split('=')[1];
+  }
+  if (getCookie('auth') === '1') {
+    // Hide password input, show only Enter button
+    document.getElementById('passwordInput').type = 'hidden';
+    document.getElementById('passwordInput').value = 'changeme'; // auto-fill if you want
+    document.getElementById('loginForm').onsubmit = function(e) {
+      // Directly submit the form (simulate login)
+      window.location.href = '/master';
+      e.preventDefault();
+    };
+  } else {
+    document.getElementById('loginForm').onsubmit = async function(e) {
+      e.preventDefault();
+      document.getElementById('errorMsg').classList.add('hidden');
+      const password = document.getElementById('passwordInput').value;
+      const params = new URLSearchParams();
+      params.append('password', password);
+      const res = await fetch('/login', {
+        method: 'POST',
+        body: params,
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      });
+      if (res.redirected) {
+        window.location.href = res.url;
+      } else if (res.status === 401) {
+        document.getElementById('errorMsg').textContent = 'Wrong access code';
+        document.getElementById('errorMsg').classList.remove('hidden');
+      } else {
+        document.getElementById('errorMsg').textContent = 'Unexpected error';
+        document.getElementById('errorMsg').classList.remove('hidden');
+      }
+    };
+  }
+});
+  </script>
 </body>
 </html>

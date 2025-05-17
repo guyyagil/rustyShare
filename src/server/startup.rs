@@ -2,29 +2,28 @@ use std::net::SocketAddr;
 use tracing::info;
 use super::routes;
 use std::sync::{Arc, Mutex};
-use crate::media::scanner::scan_dir;
+use crate::fileManager::scanner::scan_dir;
 use crate::utils::config::Config;
 use std::path::Path;
-use tower_http::limit::RequestBodyLimitLayer;
+
 
 pub async fn start_server() {
     // Load config from environment
     let config = Config::from_env();
 
-    // Use media_dir from config
-    let media_dir = config.media_dir.clone();
-    let media_dir_path = Path::new(&media_dir);
+    // Use file_dir from config
+    let file_dir = config.file_dir.clone();
+    let fil_dir_path = Path::new(&file_dir);
 
-    let media_tree = Arc::new(Mutex::new(scan_dir(media_dir_path, media_dir_path)));
-    let watcher_tree = media_tree.clone();
-    let media_dir_for_watcher = media_dir.clone();
+    let file_tree = Arc::new(Mutex::new(scan_dir(fil_dir_path, fil_dir_path)));
+    let watcher_tree = file_tree.clone();
+    
 
     std::thread::spawn(move || {
-        crate::media::watch::start_watcher(watcher_tree, &media_dir_for_watcher);
+        crate::fileManager::watch::start_watcher(watcher_tree, &(file_dir.clone()));
     });
 
-    let app = routes::create_router(media_tree.clone())
-        .layer(RequestBodyLimitLayer::new(1024 * 1024 * 1024)); // 1 GB
+    let app = routes::create_router(file_tree.clone());
     let port: u16 = config.port.parse().unwrap_or(3000);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
 

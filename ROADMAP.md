@@ -34,18 +34,13 @@ For ROADMAP.md, here's the complete updated version:
 
 ## Phase 5: Streaming Features
 - [x] Implement range requests
-- [ ] Add streaming optimization
-- [ ] Implement buffering
-- [ ] Add quality selection (if applicable)
-- [ ] Implement progress tracking
+- [x] Add streaming optimization
+- [x] Implement buffering
+
 
 ## Phase 6: Security and Configuration
-- [ ] Add basic authentication
-- [ ] Implement configuration system
-- [ ] Add environment variable support
-- [ ] Implement security headers
-- [ ] Add rate limiting
-- [ ] Configure system service security
+- [x] Add environment variable support
+- [x] Configure system service security
 
 ## Phase 7: Advanced Features
 - [ ] Set up system service (systemd) for automatic startup

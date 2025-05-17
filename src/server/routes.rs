@@ -1,39 +1,45 @@
 use axum::{
-    http::{StatusCode,header},
-    response::Html,
-    routing::{get, MethodRouter},
-    Router,
-    Json,
-    response::{IntoResponse, Response},
-    extract::{Extension,Path},
-    body::Body,
-    extract::DefaultBodyLimit,
+    body::Body, 
+    extract::{DefaultBodyLimit, Extension, Form, Path},
+    http::{header, StatusCode}, 
+    response::{Html, IntoResponse, Redirect, Response}, 
+    routing::{get, MethodRouter}, 
+    Json, 
+    Router
 };
 
 use std::path::PathBuf;
 use axum_extra::extract::{Multipart,TypedHeader};
+use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
 use headers::Range;
 use tokio::{fs::File};
 use tokio_util::io::ReaderStream;
-use crate::media::files::FileEntry;
 use std::sync::{Arc, Mutex};
 use super::streaming::*;
-use crate::media::files::*;
+use crate::fileManager::files::*;
+
+
+#[derive(serde::Deserialize)]
+struct LoginForm {
+    password: String,
+}
+
+
 
 pub fn create_router(media_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
     Router::new()
-       
         .route("/", static_handler("html/home.html"))
-        .route("/media", static_handler("html/media.html"))
-        .route("/api/media.json", get(media_json))
-        .route("/api/media/{*path}", get(open)) 
+        .route("/login", axum::routing::post(login))
+        .route("/master", get(media_protected))
+        .route("/api/master.json", get(media_json))
+        .route("/api/master/path", get(open))
         .route("/health", get(health_check))
         .route("/api/upload", axum::routing::post(upload_file))
         .fallback(static_handler("html/error.html"))
+        .layer(CookieManagerLayer::new()) // <-- Add this line
         .layer(Extension(media_tree))
-        .layer(DefaultBodyLimit::max(1024 * 1024 * 1024)) // 1 GB
+        .layer(DefaultBodyLimit::max(1024 * 1024 * 1024)) 
 }
-
 
 fn static_handler(path: &'static str) -> MethodRouter {
     get(move || async move  {
@@ -43,10 +49,10 @@ fn static_handler(path: &'static str) -> MethodRouter {
     })
 }
 
-
 async fn health_check() -> StatusCode {
     StatusCode::OK
 }
+
 async fn media_json(
     Extension(media_tree): Extension<Arc<Mutex<Option<FileEntry>>>>,
 ) -> Json<Option<FileEntry>> {
@@ -54,14 +60,13 @@ async fn media_json(
     Json(tree.clone())
 }
 
-
 async fn open(Path(path): Path<String>, range: Option<TypedHeader<Range>>) -> Response {
     let safe_path = match safe_path(&path) {
         Ok(p) => p,
         Err(resp) => return resp,
     };
 
-    let file_path =safe_path.clone(); 
+    let file_path = safe_path.clone(); 
     let mime = get_mime_type(&file_path);
     let file = match File::open(&file_path).await {
         Ok(f) => f,
@@ -70,7 +75,7 @@ async fn open(Path(path): Path<String>, range: Option<TypedHeader<Range>>) -> Re
     let file_size = file_size(&file).await;
 
      if let Some(TypedHeader(range)) = range {
-        return build_range_response(file, file_size, &mime, range).await ;
+        return build_range_response(file, file_size, &mime, range).await;
     }  else {
         // No range header, stream the whole file
         let stream = ReaderStream::new(file);
@@ -82,10 +87,8 @@ async fn open(Path(path): Path<String>, range: Option<TypedHeader<Range>>) -> Re
     }
 }
 
-
-
 async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
-    let upload_dir = PathBuf::from("media");
+    let upload_dir = PathBuf::from("master");
 
     loop {
         let field_result = multipart.next_field().await;
@@ -115,4 +118,25 @@ async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
     }
     (StatusCode::OK, "File uploaded").into_response()
 }
+#[axum::debug_handler]
+async fn login(cookies: Cookies, Form(form): Form<LoginForm>) -> impl IntoResponse {
+    if form.password == "changeme" {
+        let mut cookie = Cookie::new("auth", "1");
+        cookie.set_path("/");
+        cookie.set_max_age(cookie::time::Duration::hours(12)); // 1 day
+        cookies.add(cookie);
+        Redirect::to("/master").into_response()
+    } else {
+        (StatusCode::UNAUTHORIZED, "Wrong access code").into_response()
+    }
+}
 
+async fn media_protected(cookies: Cookies) -> impl IntoResponse {
+    if cookies.get("auth").map(|c| c.value().to_owned()) == Some("1".to_string()) {
+        let content = std::fs::read_to_string("html/master.html")
+            .unwrap_or_else(|_| "html/error.html".to_string());
+        Html(content).into_response()
+    } else {
+        Redirect::to("html/error.html").into_response()
+    }
+}
