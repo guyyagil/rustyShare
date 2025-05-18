@@ -4,13 +4,13 @@
 ![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20macOS-informational)
 
 **RustyShare** is a lightweight, cross-platform local LAN sharing server built with Rust.  
-Host a master PC as a server and let any device on your network access, upload, download, and stream files directly from your browser—no client app required!
+Host a master PC as a server and let any device on your network access, upload, download, update, and stream files directly from your browser—no client app required!
 
 ---
 
 ## Features
 
-* 📁 **Share any file** over your LAN—upload, download, and manage files from any device
+* 📁 **Share any file** over your LAN—upload, download, update, and manage files from any device
 * 🎥 **Stream video and audio** files instantly in your browser
 * 🌐 **Modern, browser-based interface** (no client install needed)
 * 🔍 **Automatic media file discovery**
@@ -201,7 +201,6 @@ rustyShare/
 │   ├── server/                  # Server-related code
 │   │   ├── mod.rs               # Server module definition
 │   │   ├── routes.rs            # Route handlers (web endpoints)
-│   │   ├── auth.rs              # Authentication logic
 │   │   ├── startup.rs           # Server startup logic
 │   │   └── streaming.rs         # Media streaming logic
 │   ├── fileManager/             # File management logic
@@ -212,10 +211,10 @@ rustyShare/
 │   └── utils/                   # Utility functions
 │       ├── mod.rs               # Utils module definition
 │       └── config.rs            # Configuration handling
-├── html/                        # HTML files for the web interface
-│   ├── home.html                # Home/login page
-│   └── master.html              # Main interface after login
 ├── static/                      # Static assets
+│   ├── html/                    # HTML files for the web interface
+│   │   ├── home.html            # Home/login page
+│   │   └── master.html          # Main interface after login
 │   ├── css/                     # Stylesheets
 │   └── js/                      # JavaScript files
 ├── tests/                       # Test files
