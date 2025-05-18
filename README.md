@@ -14,6 +14,7 @@ Host a master PC as a server and let any device on your network access, upload, 
 * 🎥 **Stream video and audio** files instantly in your browser
 * 🌐 **Modern, browser-based interface** (no client install needed)
 * 🔍 **Automatic media file discovery**
+* 🔎 **Search for files** instantly using the built-in search bar in the web interface
 * 💻 **Cross-platform** (Linux, Windows, macOS)
 * ⚡ **Efficient and lightweight**
 * 🔄 **Real-time media directory monitoring**
@@ -143,6 +144,10 @@ If you want RustyShare to start automatically when your system boots:
    * Removed files are removed from the listing
    * Modified files are updated in real-time
    * No manual refresh required
+
+3. **Search:**
+
+   * Use the search bar at the top of the interface to quickly find files and folders by name
 
 ---
 

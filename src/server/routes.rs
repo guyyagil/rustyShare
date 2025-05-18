@@ -19,12 +19,14 @@ use crate::utils::config::Config;
 use tracing::info;
 use tower_http::services::ServeDir;
 
+/// Form data for login requests.
 #[derive(serde::Deserialize)]
 struct LoginForm {
     password: String,
 }
-// Creates and configures the application router with all routes.
-// Accepts a shared `file_tree` state for media file management.
+
+/// Creates and configures the application router with all routes.
+/// Accepts a shared `file_tree` state for media file management.
 pub fn create_router(file_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
     Router::new()
         .nest_service("/static", ServeDir::new("static"))
@@ -37,13 +39,13 @@ pub fn create_router(file_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
         .route("/api/upload", axum::routing::post(upload_file))
         .route("/api/update", axum::routing::post(update_file))
         .fallback(static_handler("static/html/error.html"))
-        .layer(CookieManagerLayer::new()) // <-- Add this line
-        .layer(Extension(file_tree))
-        .layer(DefaultBodyLimit::max(1024 * 1024 * 1024)) 
+        .layer(CookieManagerLayer::new()) // Enables cookie management for authentication
+        .layer(Extension(file_tree))      // Shares the file tree state with handlers
+        .layer(DefaultBodyLimit::max(1024 * 1024 * 1024)) // 1GB upload limit
 }
 
-// Generic handler for serving static HTML content.
-// Used for routes that do not require dynamic logic
+/// Generic handler for serving static HTML content.
+/// Used for routes that do not require dynamic logic.
 fn static_handler(path: &'static str) -> MethodRouter {
     get(move || async move  {
         let content = std::fs::read_to_string(path)
@@ -52,10 +54,12 @@ fn static_handler(path: &'static str) -> MethodRouter {
     })
 }
 
+/// Simple health check endpoint.
 async fn health_check() -> StatusCode {
     StatusCode::OK
 }
 
+/// Returns the current file tree as JSON.
 async fn media_json(
     Extension(file_tree): Extension<Arc<Mutex<Option<FileEntry>>>>,
 ) -> Json<Option<FileEntry>> {
@@ -63,7 +67,7 @@ async fn media_json(
     Json(tree.clone())
 }
 
-// open supported browser files in web view 
+/// Opens a file for browser viewing or streaming (supports range requests).
 async fn open(Path(path): Path<String>, range: Option<TypedHeader<Range>>) -> Response {
     let safe_path = match safe_path(&path) {
         Ok(p) => p,
@@ -79,7 +83,8 @@ async fn open(Path(path): Path<String>, range: Option<TypedHeader<Range>>) -> Re
     
     let file_size = file_size(&file).await;
 
-     if let Some(TypedHeader(range)) = range {
+    // If a Range header is present, build a partial content response
+    if let Some(TypedHeader(range)) = range {
         return build_range_response(file, file_size, &mime, range).await;
     }  else {
         // No range header, stream the whole file
@@ -92,10 +97,12 @@ async fn open(Path(path): Path<String>, range: Option<TypedHeader<Range>>) -> Re
     }
 }
 
+/// Handles file uploads via multipart form data.
 pub async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
     let mut target_path: Option<String> = None;
     let mut file_data: Option<(String, bytes::Bytes)> = None;
 
+    // Parse multipart fields for target path and file data
     while let Some(field) = multipart.next_field().await.unwrap_or(None) {
         if let Some(name) = field.name() {
             if name == "target_path" {
@@ -126,6 +133,7 @@ pub async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
         None => return (StatusCode::BAD_REQUEST, "Missing file").into_response(),
     };
 
+    // Build the relative path for the uploaded file
     let rel_path = if let Some(ref dir) = target_path {
         if dir.is_empty() {
             filename.clone()
@@ -145,16 +153,19 @@ pub async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
 
     info!("🧩 Resolved filesystem path: {:?}", filepath);
 
+    // Prevent overwriting existing files
     if filepath.exists() {
         return (StatusCode::CONFLICT, "File already exists").into_response();
     }
 
+    // Ensure parent directory exists
     if let Some(parent) = filepath.parent() {
         if !parent.exists() {
             return (StatusCode::BAD_REQUEST, "Target folder does not exist").into_response();
         }
     }
 
+    // Write the file to disk
     if let Err(e) = tokio::fs::write(&filepath, &data).await {
         return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to save file: {e}")).into_response();
     }
@@ -162,6 +173,8 @@ pub async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
     (StatusCode::OK, "File uploaded").into_response()
 }
 
+/// Handles file updates (replacement) via multipart form data.
+/// Updates the in-memory file tree metadata after writing.
 #[axum::debug_handler]
 pub async fn update_file(
     Extension(file_tree): Extension<Arc<Mutex<Option<FileEntry>>>>,
@@ -171,7 +184,7 @@ pub async fn update_file(
     let mut file_bytes: Option<bytes::Bytes> = None;
     let mut uploaded_ext: Option<String> = None;
 
-    // Parse multipart fields
+    // Parse multipart fields for path and file
     while let Some(field) = multipart.next_field().await.unwrap_or(None) {
         match field.name() {
             Some("replace_path") => {
@@ -197,13 +210,13 @@ pub async fn update_file(
         }
     }
 
-    // Ensure we have path and file
+    // Ensure we have both the path and file data
     let (rp, data) = match (replace_path, file_bytes) {
         (Some(rp), Some(data)) => (rp, data),
         _ => return (StatusCode::BAD_REQUEST, "Missing file or path").into_response(),
     };
 
-    // Check extension match
+    // Check that the file extension matches the original
     let orig_ext = std::path::Path::new(&rp)
         .extension()
         .and_then(|e| e.to_str())
@@ -223,7 +236,7 @@ pub async fn update_file(
         ).into_response();
     }
 
-    // Extract the entry path before any await
+    // Find the file entry in the in-memory tree before updating
     let entry_arc = {
         let mut tree_guard = file_tree.lock().await;
         let tree = tree_guard.as_mut().unwrap();
@@ -263,13 +276,24 @@ pub async fn update_file(
                 .into_response();
         }
 
+        // Update the in-memory FileEntry metadata
+        {
+            let mut tree_guard = file_tree.lock().await;
+            if let Some(tree) = tree_guard.as_mut() {
+                if let Some(mut entry) = find_entry(tree, &rp) {
+                    entry.size = get_file_size(&filepath);
+                    entry.modified = get_modified_time(&filepath);
+                }
+            }
+        }
+
         return (StatusCode::OK, "File updated successfully").into_response();
     } else {
         return (StatusCode::NOT_FOUND, "File not found in media tree").into_response();
     }
 }
 
-//password protected login route and create authentication cookie
+/// Password-protected login route and create authentication cookie.
 async fn login(cookies: Cookies, Form(form): Form<LoginForm>) -> impl IntoResponse {
     if form.password == Config::from_env().password() {
         let mut cookie = Cookie::new("auth", "1");
@@ -282,8 +306,8 @@ async fn login(cookies: Cookies, Form(form): Form<LoginForm>) -> impl IntoRespon
     }
 }
 
-
-//check if the user is authenticated using the cookie created by the login route
+/// Checks if the user is authenticated using the cookie created by the login route.
+/// If not authenticated, redirects to the error page.
 async fn media_protected(cookies: Cookies) -> impl IntoResponse {
     if cookies.get("auth").map(|c| c.value().to_owned()) == Some("1".to_string()) {
         let content = std::fs::read_to_string("static/html/master.html")

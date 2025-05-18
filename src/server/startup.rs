@@ -1,27 +1,26 @@
 use std::net::SocketAddr;
 use tracing::info;
 use super::routes;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::Mutex;
 use std::sync::Arc;
 
 use crate::file_manager::scanner::scan_dir;
 use crate::utils::config::Config;
 use std::path::Path;
 
-/// Starts the server and initializes the file tree watcher.
 pub async fn start_server() {
     
-    // Load config from environment
+    
     let config = Config::from_env();
 
-    // Use file_dir from config
+    
     let file_dir = config.file_dir().to_owned();
     let fil_dir_path = Path::new(&file_dir);
 
     let file_tree = Arc::new(Mutex::new(scan_dir(fil_dir_path, fil_dir_path)));
     let watcher_tree = file_tree.clone();
     
-    // Start the file watcher in a separate async task
+    // Start file watcher in a separate async task
     tokio::spawn(async move {
         crate::file_manager::watch::start_watcher(watcher_tree, &(file_dir.clone())).await;
     });

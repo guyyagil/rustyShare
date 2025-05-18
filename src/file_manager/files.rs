@@ -10,9 +10,9 @@ use axum::{
     response::{ IntoResponse, Response}, 
     http::StatusCode};
 use crate::utils::config::Config;
-
 use std::path::Path;
-// directory and files representation for the media tree
+
+/// Represents a file or directory in the media tree.
 #[derive(Debug, Serialize, Clone)]
 pub struct FileEntry {
     pub name: String,
@@ -22,13 +22,12 @@ pub struct FileEntry {
     pub size: Option<u64>,
     pub modified: Option<String>,
     pub children: Option<Vec<FileEntry>>,
-     pub is_browser_supported: bool,
-    #[serde(skip_serializing)] // 👈 This is what skips it
+    pub is_browser_supported: bool,
+    #[serde(skip_serializing)] // Used for locking, not sent to client
     pub lock: Arc<Mutex<()>>
 }
 
-
-
+/// Enum for categorizing file types.
 #[derive(Debug, PartialEq, Eq, Clone, Copy,Serialize)]
 pub enum FileType {
     Video,
@@ -37,8 +36,9 @@ pub enum FileType {
     Other,
 }
 
-//////////////////////////////////helper functions to get file properties/////////////////////////
+//------------------- Helper functions to get file properties -------------------//
 
+/// Detects the file type based on extension.
 pub fn detect_file_type<P : AsRef<Path>>(path: P, is_dir: bool) -> FileType {
     let path = path.as_ref();
     if is_dir {
@@ -55,13 +55,13 @@ pub fn detect_file_type<P : AsRef<Path>>(path: P, is_dir: bool) -> FileType {
     }
 }
 
-
+/// Returns the file size in bytes, or None if not available.
 pub fn get_file_size<P : AsRef<Path>>(path: P) -> Option<u64> {
     let path = path.as_ref();
     fs::metadata(path).ok().map(|m| m.len())
 }
 
-
+/// Returns the last modified time as an RFC3339 string, or None if not available.
 pub fn get_modified_time<P :AsRef<Path>>(path: P) -> Option<String> {
     let path = path.as_ref();
     let metadata = fs::metadata(path).ok()?;
@@ -70,16 +70,20 @@ pub fn get_modified_time<P :AsRef<Path>>(path: P) -> Option<String> {
     Some(datetime.to_rfc3339())
 }
 
+/// Returns the MIME type for a file path.
 pub fn get_mime_type<P: AsRef<Path>>(path: P) -> Mime {
     from_path(path.as_ref()).first_or_octet_stream()
 }
 
+/// Async: Returns the file size for an open file handle.
 pub async fn file_size(f :&File) -> u64 {
     match f.metadata().await {
         Ok(meta) => meta.len(),
         Err(_) => 0,
     }
 }
+
+/// Ensures a given path is safe and within the configured master directory.
 pub fn safe_path<P: AsRef<Path>>(path: P) -> Result<PathBuf, Response> {
     let config = Config::from_env();
     let master_dir = PathBuf::from(config.file_dir());
@@ -110,6 +114,7 @@ pub fn safe_path<P: AsRef<Path>>(path: P) -> Result<PathBuf, Response> {
     }
 }
 
+/// Checks if a file extension is supported for browser preview.
 pub fn is_browser_supported<P: AsRef<Path>>(path: P) -> bool {
     let path = path.as_ref();
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
@@ -128,6 +133,8 @@ pub fn is_browser_supported<P: AsRef<Path>>(path: P) -> bool {
     )
 }
 
+/// Recursively searches for a FileEntry by path in the tree.
+/// Returns a clone of the entry if found.
 pub fn find_entry(file_entry : &mut FileEntry, path: &str) -> Option<FileEntry> {
     if file_entry.path == path {
         return Some(file_entry.clone());
