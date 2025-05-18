@@ -2,12 +2,13 @@ use std::net::SocketAddr;
 use tracing::info;
 use super::routes;
 use std::sync::{Arc, Mutex};
-use crate::fileManager::scanner::scan_dir;
+use crate::file_manager::scanner::scan_dir;
 use crate::utils::config::Config;
 use std::path::Path;
 
 /// Starts the server and initializes the file tree watcher.
 pub async fn start_server() {
+    
     // Load config from environment
     let config = Config::from_env();
 
@@ -20,7 +21,7 @@ pub async fn start_server() {
     
     // Start the file watcher in a separate thread
     std::thread::spawn(move || {
-        crate::fileManager::watch::start_watcher(watcher_tree, &(file_dir.clone()));
+        crate::file_manager::watch::start_watcher(watcher_tree, &(file_dir.clone()));
     });
 
     let app = routes::create_router(file_tree.clone());

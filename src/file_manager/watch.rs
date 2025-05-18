@@ -1,7 +1,6 @@
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, EventKind};
 use std::sync::{Arc, Mutex, mpsc::channel};
-use crate::fileManager::scanner::scan_dir;
-use crate::fileManager::files::FileEntry;
+use crate::file_manager::{scanner::scan_dir, files::FileEntry};
 use std::path::Path;
 use tracing::{info, error};
 //watching and handling file changes in the media director

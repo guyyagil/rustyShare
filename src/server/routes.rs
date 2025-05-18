@@ -7,8 +7,6 @@ use axum::{
     Json, 
     Router
 };
-
-use std::path::PathBuf;
 use axum_extra::extract::{Multipart,TypedHeader};
 use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
 use headers::Range;
@@ -16,9 +14,10 @@ use tokio::{fs::File};
 use tokio_util::io::ReaderStream;
 use std::sync::{Arc, Mutex};
 use super::streaming::*;
-use crate::fileManager::files::*;
+use crate::file_manager::files::*;
 use crate::utils::config::Config;
 use tracing::info;
+use tower_http::services::ServeDir;
 
 #[derive(serde::Deserialize)]
 struct LoginForm {
@@ -28,7 +27,8 @@ struct LoginForm {
 // Accepts a shared `media_tree` state for media file management.
 pub fn create_router(media_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
     Router::new()
-        .route("/", static_handler("html/home.html"))
+        .nest_service("/static", ServeDir::new("static"))
+        .route("/", static_handler("static/html/home.html"))
         .route("/login", axum::routing::post(login))
         .route("/master", get(media_protected))
         .route("/api/master.json", get(media_json))
@@ -36,7 +36,7 @@ pub fn create_router(media_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
         .route("/health", get(health_check))
         .route("/api/upload", axum::routing::post(upload_file))
         .route("/api/update", axum::routing::post(update_file))
-        .fallback(static_handler("html/error.html"))
+        .fallback(static_handler("static/html/error.html"))
         .layer(CookieManagerLayer::new()) // <-- Add this line
         .layer(Extension(media_tree))
         .layer(DefaultBodyLimit::max(1024 * 1024 * 1024)) 
@@ -225,10 +225,11 @@ async fn login(cookies: Cookies, Form(form): Form<LoginForm>) -> impl IntoRespon
 //check if the user is authenticated using the cookie created by the login route
 async fn media_protected(cookies: Cookies) -> impl IntoResponse {
     if cookies.get("auth").map(|c| c.value().to_owned()) == Some("1".to_string()) {
-        let content = std::fs::read_to_string("html/master.html")
-            .unwrap_or_else(|_| "html/error.html".to_string());
+        let content = std::fs::read_to_string("static/html/master.html")
+            .or_else(|_| std::fs::read_to_string("static/html/error.html"))
+            .unwrap_or_else(|_| "<h1>Page not found</h1>".to_string());
         Html(content).into_response()
     } else {
-        Redirect::to("html/error.html").into_response()
+        Redirect::to("static/html/error.html").into_response()
     }
 }

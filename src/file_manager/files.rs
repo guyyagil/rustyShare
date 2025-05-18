@@ -1,4 +1,3 @@
-
 use serde::Serialize;
 use mime_guess::{Mime,from_path};
 use std::fs;
@@ -82,9 +81,28 @@ pub fn safe_path<P: AsRef<Path>>(path: P) -> Result<PathBuf, Response> {
     let master_dir = PathBuf::from(config.file_dir());
     let joined_path = master_dir.join(path.as_ref());
 
+    let master_canon = master_dir.canonicalize().map_err(|_| {
+        (StatusCode::INTERNAL_SERVER_ERROR, "Internal error").into_response()
+    })?;
+
+    // If the folder exists, great — but use full path canonicalization if available
     match joined_path.canonicalize() {
-        Ok(canonical) if canonical.starts_with(&master_dir) => Ok(canonical),
-        _ => Err((StatusCode::FORBIDDEN, "Forbidden").into_response()),
+        Ok(p) => {
+            if p.starts_with(&master_canon) {
+                Ok(joined_path)
+            } else {
+                Err((StatusCode::FORBIDDEN, "Path escape blocked").into_response())
+            }
+        }
+        Err(_) => {
+            // If canonicalization fails (e.g., file doesn't exist yet), still allow it if the parent exists
+            if let Some(parent) = joined_path.parent() {
+                if parent.exists() && parent.starts_with(&master_dir) {
+                    return Ok(joined_path);
+                }
+            }
+            Err((StatusCode::BAD_REQUEST, "Target folder doesn't exist").into_response())
+        }
     }
 }
 
@@ -102,6 +120,6 @@ pub fn is_browser_supported<P: AsRef<Path>>(path: P) -> bool {
         // Documents commonly supported by browsers
         "pdf" | "txt" | "csv" | "html" | "htm" | "md" |
         // Office docs (modern browsers with plugins or Google Docs viewer)
-        "doc" | "docx" | "xls" | "xlsx"
+        "doc" | "xls" | "xlsx"
     )
 }

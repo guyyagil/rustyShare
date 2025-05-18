@@ -4,7 +4,7 @@ use std::path::Path;
 use super::files::*;
 
 //scan and build reucrsively the file tree using FileEntry struct
-pub fn scan_dir<P: AsRef<Path>>(file_dir: &Path, path: P) -> Option<FileEntry> {
+pub fn scan_dir<P: AsRef<Path>>(root_dir: &Path, path: P) -> Option<FileEntry> {
     let path = path.as_ref();
     let is_browser_supported = is_browser_supported(path);
     let name = path.file_name()?.to_str()?.to_string();
@@ -13,8 +13,8 @@ pub fn scan_dir<P: AsRef<Path>>(file_dir: &Path, path: P) -> Option<FileEntry> {
         return None;
     }
 
-    // Compute relative path from file_dir
-    let rel_path = path.strip_prefix(file_dir).unwrap_or(path);
+    // Compute relative path from root_dir
+    let rel_path = path.strip_prefix(root_dir).unwrap_or(path);
     let path_str = rel_path.display().to_string();
     let size = get_file_size(path);
     let modified = get_modified_time(path);
@@ -30,7 +30,7 @@ pub fn scan_dir<P: AsRef<Path>>(file_dir: &Path, path: P) -> Option<FileEntry> {
             for entry in entries.flatten() {
                 let entry_path = entry.path();
 
-                if let Some(child) = scan_dir(file_dir, entry_path) {
+                if let Some(child) = scan_dir(root_dir, entry_path) {
                     children.push(child);
                 }
             }

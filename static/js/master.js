@@ -1,35 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>master Library</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gradient-to-br from-gray-100 via-blue-100 to-blue-200 min-h-screen">
-  <div class="max-w-4xl mx-auto py-8">
-    <!-- Search bar above the grid -->
-    <div class="flex justify-center mb-6">
-      <input
-        id="searchInput"
-        type="text"
-        placeholder="Search files..."
-        class="w-full max-w-2xl bg-white text-blue-900 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 shadow"
-        autocomplete="off"
-      />
-    </div>
-    <!-- Add mt-10 for more space above the grid -->
-    <div id="tree" class="bg-white bg-opacity-90 rounded shadow p-6 border border-blue-200 mt-10"></div>
-  </div>
-  <div class="flex justify-center mb-8">
-    <form id="uploadForm" dir="rtl" class="flex items-center gap-4 bg-white bg-opacity-80 rounded-lg px-6 py-4 shadow border border-blue-200 w-full max-w-2xl" enctype="multipart/form-data">
-      <input type="file" name="file" class="flex-1 bg-gray-100 text-blue-900 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 text-right" required>
-      <button type="submit" class="px-6 py-2 bg-blue-400 text-white rounded-lg font-semibold shadow hover:bg-blue-500 transition-all duration-200">
-        Upload
-      </button>
-    </form>
-  </div>
-
-  <script>
 let masterData = null;
 let currentPath = "";
 
@@ -211,6 +179,3 @@ document.getElementById("searchInput").addEventListener("input", updateGrid);
 
 fetchmasterTree();
 setInterval(fetchmasterTree, 5000);
-  </script>
-</body>
-</html>
