@@ -10,9 +10,9 @@ use axum::{
 use axum_extra::extract::{Multipart,TypedHeader};
 use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
 use headers::Range;
-use tokio::{fs::File};
+use tokio::{fs::File,sync::{Mutex, MutexGuard}};
 use tokio_util::io::ReaderStream;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use super::streaming::*;
 use crate::file_manager::files::*;
 use crate::utils::config::Config;
@@ -24,8 +24,8 @@ struct LoginForm {
     password: String,
 }
 // Creates and configures the application router with all routes.
-// Accepts a shared `media_tree` state for media file management.
-pub fn create_router(media_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
+// Accepts a shared `file_tree` state for media file management.
+pub fn create_router(file_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
     Router::new()
         .nest_service("/static", ServeDir::new("static"))
         .route("/", static_handler("static/html/home.html"))
@@ -38,7 +38,7 @@ pub fn create_router(media_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
         .route("/api/update", axum::routing::post(update_file))
         .fallback(static_handler("static/html/error.html"))
         .layer(CookieManagerLayer::new()) // <-- Add this line
-        .layer(Extension(media_tree))
+        .layer(Extension(file_tree))
         .layer(DefaultBodyLimit::max(1024 * 1024 * 1024)) 
 }
 
@@ -57,9 +57,9 @@ async fn health_check() -> StatusCode {
 }
 
 async fn media_json(
-    Extension(media_tree): Extension<Arc<Mutex<Option<FileEntry>>>>,
+    Extension(file_tree): Extension<Arc<Mutex<Option<FileEntry>>>>,
 ) -> Json<Option<FileEntry>> {
-    let tree = media_tree.lock().unwrap();
+    let tree = file_tree.lock().await;
     Json(tree.clone())
 }
 
@@ -162,49 +162,110 @@ pub async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
     (StatusCode::OK, "File uploaded").into_response()
 }
 
-// --- New update route handler ---
-async fn update_file(mut multipart: Multipart) -> impl IntoResponse {
+#[axum::debug_handler]
+pub async fn update_file(
+    Extension(file_tree): Extension<Arc<Mutex<Option<FileEntry>>>>,
+    mut multipart: Multipart,
+) -> impl IntoResponse {
     let mut replace_path: Option<String> = None;
     let mut file_bytes: Option<bytes::Bytes> = None;
+    let mut uploaded_ext: Option<String> = None;
 
+    // Parse multipart fields
     while let Some(field) = multipart.next_field().await.unwrap_or(None) {
-        if let Some(name) = field.name() {
-            if name == "replace_path" {
+        match field.name() {
+            Some("replace_path") => {
                 replace_path = Some(field.text().await.unwrap_or_default());
-                continue;
             }
-        }
-        if field.file_name().is_some() {
-            match field.bytes().await {
-                Ok(data) => file_bytes = Some(data),
-                Err(e) => {
-                    eprintln!("Failed to read file bytes: {:?}", e);
-                    return (StatusCode::BAD_REQUEST, "Failed to read file content").into_response();
+            _ if field.file_name().is_some() => {
+                // Get the uploaded file's extension
+                if let Some(fname) = field.file_name() {
+                    uploaded_ext = std::path::Path::new(fname)
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .map(|s| s.to_lowercase());
+                }
+                match field.bytes().await {
+                    Ok(data) => file_bytes = Some(data),
+                    Err(e) => {
+                        eprintln!("Failed to read file bytes: {:?}", e);
+                        return (StatusCode::BAD_REQUEST, "Failed to read file").into_response();
+                    }
                 }
             }
+            _ => {}
         }
     }
 
-    if let (Some(rp), Some(data)) = (replace_path, file_bytes) {
+    // Ensure we have path and file
+    let (rp, data) = match (replace_path, file_bytes) {
+        (Some(rp), Some(data)) => (rp, data),
+        _ => return (StatusCode::BAD_REQUEST, "Missing file or path").into_response(),
+    };
+
+    // Check extension match
+    let orig_ext = std::path::Path::new(&rp)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let uploaded_ext = uploaded_ext.unwrap_or_default();
+
+    if orig_ext != uploaded_ext {
+        return (
+            StatusCode::BAD_REQUEST,
+            [(header::CONTENT_TYPE, "text/plain")],
+            format!(
+                "Extension mismatch: original is .{}, uploaded is .{}",
+                orig_ext, uploaded_ext
+            ),
+        ).into_response();
+    }
+
+    // Extract the entry path before any await
+    let entry_arc = {
+        let mut tree_guard = file_tree.lock().await;
+        let tree = tree_guard.as_mut().unwrap();
+        // Clone the Arc to the entry if found
+        if let Some(entry) = find_entry(tree, &rp) {
+            Some(entry.clone())
+        } else {
+            None
+        }
+    };
+
+    if let Some(entry) = entry_arc {
+        // Lock the file entry to prevent concurrent updates
+        let _file_guard = entry.lock.lock().await;
+
+        // Resolve the safe path
         let filepath = match safe_path(&rp) {
             Ok(p) => p,
-            Err(resp) => return resp,
+            Err(resp) => return resp, // This will return a proper error response
         };
 
+        // Remove old file if it exists
         if filepath.exists() {
-            if let Ok(metadata) = std::fs::metadata(&filepath) {
-                if metadata.is_file() {
+            if let Ok(meta) = std::fs::metadata(&filepath) {
+                if meta.is_file() {
                     let _ = std::fs::remove_file(&filepath);
                 }
             }
         }
 
+        // Write the new file
         if let Err(e) = tokio::fs::write(&filepath, &data).await {
-            return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to update file: {e}")).into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to write file: {e}"),
+            )
+                .into_response();
         }
-        (StatusCode::OK, "File updated").into_response()
+
+        return (StatusCode::OK, "File updated successfully").into_response();
     } else {
-        (StatusCode::BAD_REQUEST, "No file updated").into_response()
+        return (StatusCode::NOT_FOUND, "File not found in media tree").into_response();
     }
 }
 

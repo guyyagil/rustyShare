@@ -4,6 +4,8 @@ use std::fs;
 use chrono::{DateTime, Utc};
 use tokio::fs::File;
 use std::path::PathBuf;
+use tokio::sync::Mutex;
+use std::sync::Arc;
 use axum::{ 
     response::{ IntoResponse, Response}, 
     http::StatusCode};
@@ -20,7 +22,9 @@ pub struct FileEntry {
     pub size: Option<u64>,
     pub modified: Option<String>,
     pub children: Option<Vec<FileEntry>>,
-    pub is_browser_supported: bool,
+     pub is_browser_supported: bool,
+    #[serde(skip_serializing)] // 👈 This is what skips it
+    pub lock: Arc<Mutex<()>>
 }
 
 
@@ -122,4 +126,19 @@ pub fn is_browser_supported<P: AsRef<Path>>(path: P) -> bool {
         // Office docs (modern browsers with plugins or Google Docs viewer)
         "doc" | "xls" | "xlsx"
     )
+}
+
+pub fn find_entry(file_entry : &mut FileEntry, path: &str) -> Option<FileEntry> {
+    if file_entry.path == path {
+        return Some(file_entry.clone());
+    }
+
+    if let Some(children) = &mut file_entry.children {
+        for child in children {
+            if let Some(found) = find_entry(child, path) {
+                return Some(found);
+            }
+        }
+    }
+    None
 }

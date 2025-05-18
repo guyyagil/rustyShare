@@ -128,6 +128,8 @@ If you want RustyShare to start automatically when your system boots:
      ip a | grep inet
      ```
 
+   * **Recommendation:** For easier and more reliable access from other devices, consider setting a static IP address for your server machine on your router or network settings. This way, you can always access RustyShare using the same address (e.g., `http://192.168.1.100:3000`) without needing to check for changes.
+
 ### Managing Files
 
 1. **Add files:**

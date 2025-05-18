@@ -1,5 +1,7 @@
 use std::fs;
 use std::path::Path;
+use tokio::sync::Mutex;
+use std::sync::Arc;
 
 use super::files::*;
 
@@ -45,6 +47,7 @@ pub fn scan_dir<P: AsRef<Path>>(root_dir: &Path, path: P) -> Option<FileEntry> {
             size,
             modified,
             is_browser_supported,
+            lock: Arc::new(Mutex::new(())), // Initialize the lock
         })
     } else {
         Some(FileEntry {
@@ -56,6 +59,7 @@ pub fn scan_dir<P: AsRef<Path>>(root_dir: &Path, path: P) -> Option<FileEntry> {
             size,
             modified,
             is_browser_supported,
+            lock: Arc::new(Mutex::new(())), // Initialize the lock
         })
     }
 }

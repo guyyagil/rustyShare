@@ -152,7 +152,8 @@ function renderGrid(entry, search = "") {
           alert("File updated!");
           fetchmasterTree();
         } else {
-          alert("Update failed!");
+          const err = await res.text();
+          alert("Update failed! " + err);
         }
         updateInput.value = "";
       };

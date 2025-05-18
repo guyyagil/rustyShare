@@ -1,7 +1,9 @@
 use std::net::SocketAddr;
 use tracing::info;
 use super::routes;
-use std::sync::{Arc, Mutex};
+use tokio::sync::{Mutex, MutexGuard};
+use std::sync::Arc;
+
 use crate::file_manager::scanner::scan_dir;
 use crate::utils::config::Config;
 use std::path::Path;
@@ -19,9 +21,9 @@ pub async fn start_server() {
     let file_tree = Arc::new(Mutex::new(scan_dir(fil_dir_path, fil_dir_path)));
     let watcher_tree = file_tree.clone();
     
-    // Start the file watcher in a separate thread
-    std::thread::spawn(move || {
-        crate::file_manager::watch::start_watcher(watcher_tree, &(file_dir.clone()));
+    // Start the file watcher in a separate async task
+    tokio::spawn(async move {
+        crate::file_manager::watch::start_watcher(watcher_tree, &(file_dir.clone())).await;
     });
 
     let app = routes::create_router(file_tree.clone());
