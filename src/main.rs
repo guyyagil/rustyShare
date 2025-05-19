@@ -5,13 +5,15 @@ mod utils;
 use tracing_subscriber;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::layer::SubscriberExt;
+use utils::config;
+
 
 #[tokio::main] 
 async fn main() {
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+            config::Config::from_env().rust_log() 
         ))
         .with(tracing_subscriber::fmt::layer()) 
         .init();
