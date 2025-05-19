@@ -56,13 +56,22 @@ function renderGrid(entry, search = "") {
   // Add a back button if not at the root
   if (currentPath) {
     const backBtn = document.createElement("button");
-    backBtn.textContent = "⬅️ Back";
-    backBtn.className = "mb-4 px-4 py-2 bg-gray-300 rounded";
+    backBtn.className =
+      "flex flex-col items-center justify-center mb-4 px-6 py-4 bg-gradient-to-br from-stone-100 via-stone-50 to-white border border-stone-200 shadow-lg rounded-xl transition-all duration-200 hover:shadow-xl hover:scale-105 cursor-pointer group";
     backBtn.onclick = () => {
       const parent = currentPath.split("/").slice(0, -1).join("/");
       currentPath = parent;
       updateGrid();
     };
+    // Icon and label
+    const icon = document.createElement("span");
+    icon.className = "text-blue-400 text-3xl mb-2 group-hover:-translate-x-1 transition-transform duration-200";
+    icon.innerHTML = "&#8592;"; // Left arrow
+    const label = document.createElement("span");
+    label.className = "text-blue-700 font-semibold";
+    label.textContent = "Back";
+    backBtn.appendChild(icon);
+    backBtn.appendChild(label);
     grid.appendChild(backBtn);
   }
 
@@ -74,7 +83,7 @@ function renderGrid(entry, search = "") {
     // Create the visual item for the file/folder
     const item = document.createElement("div");
     item.className =
-      "flex flex-col items-center bg-gradient-to-br from-white via-blue-100 to-blue-200 rounded-2xl shadow-lg p-4 transition-transform duration-200 hover:scale-105 border border-blue-200 relative group";
+      "flex flex-col items-center bg-gradient-to-br from-stone-100 via-stone-50 to-white rounded-2xl shadow-lg p-4 transition-transform duration-200 hover:scale-105 border border-stone-200 relative group";
 
     // Tooltip for files (shows details on hover)
     if (!child.is_dir) {
@@ -124,7 +133,7 @@ function renderGrid(entry, search = "") {
       const openBtn = document.createElement("button");
       openBtn.textContent = "Open";
       openBtn.className =
-        "px-4 py-1 bg-blue-600 text-white rounded-full text-sm font-medium shadow hover:bg-blue-700 transition-all duration-150";
+        "px-4 py-1 bg-emerald-500 text-white rounded-full text-sm font-medium shadow hover:bg-emerald-600 transition-all duration-150";
       openBtn.onclick = (e) => {
         e.stopPropagation();
         if (child.is_dir) {
@@ -145,13 +154,13 @@ function renderGrid(entry, search = "") {
       downloadBtn.href = `/api/master/${encodeURIComponent(child.path)}`;
       downloadBtn.download = child.name;
       downloadBtn.className =
-        "px-4 py-1 bg-blue-400 text-white rounded-full text-sm font-medium shadow hover:bg-blue-500 transition-all duration-150 inline-block text-center";
+        "px-4 py-1 bg-blue-500 text-white rounded-full text-sm font-medium shadow hover:bg-blue-600 transition-all duration-150 inline-block text-center";
       btnGroup.appendChild(downloadBtn);
 
       // Update button and hidden file input
       const updateBtn = document.createElement("button");
       updateBtn.textContent = "Update";
-      updateBtn.className ="px-4 py-1 bg-yellow-500 text-white rounded-full text-sm font-medium shadow hover:bg-yellow-600 transition-all duration-150";
+      updateBtn.className ="px-4 py-1 bg-amber-200 text-amber-900 rounded-full text-sm font-medium shadow hover:bg-amber-300 transition-all duration-150";
       btnGroup.appendChild(updateBtn);
 
       const updateInput = document.createElement("input");

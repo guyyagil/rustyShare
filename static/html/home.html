@@ -4,9 +4,14 @@
   <meta charset="UTF-8">
   <title>RustyShare - Home</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/home.js"></script>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-gray-100 via-blue-100 to-blue-200 flex items-center justify-center">
-  <div class="bg-white bg-opacity-90 rounded-2xl shadow-lg p-10 flex flex-col items-center max-w-md w-full border border-blue-200">
+<body class="min-h-screen bg-gradient-to-br from-stone-100 via-stone-50 to-white flex flex-col items-center justify-center">
+  <!-- Centered Logo at the top -->
+  <div class="flex flex-col items-center mt-8 mb-4">
+    <img src="/static/logo/logo-transparent.png" alt="RustyShare Logo" class="w-80 h-80 object-contain mb-2 drop-shadow-lg" />
+  </div>
+  <div id="loginContainer" style="display:none;" class="bg-white bg-opacity-90 rounded-2xl shadow-lg p-10 flex flex-col items-center max-w-md w-full border border-blue-200">
     <h1 class="text-4xl font-extrabold text-blue-900 mb-6 drop-shadow text-center leading-tight">
       Welcome to<br>
       <span class="block text-blue-500 text-5xl mt-2">RustyShare!</span>
@@ -29,6 +34,5 @@
     </form>
     <div id="errorMsg" class="mt-2 text-red-600 font-semibold hidden">Wrong access code</div>
   </div>
-  <script src="/static/js/home.js"></script>
 </body>
 </html>
