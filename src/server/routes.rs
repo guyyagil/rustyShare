@@ -2,22 +2,22 @@ use axum::{
     body::Body, 
     extract::{DefaultBodyLimit, Extension, Form, Path},
     http::{header, StatusCode}, 
-    response::{Html, IntoResponse, Redirect, Response}, 
+    response::{Html, IntoResponse, Redirect, Response, Json}, 
     routing::{get, MethodRouter}, 
-    Json, 
     Router
 };
 use axum_extra::extract::{Multipart,TypedHeader};
 use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
 use headers::Range;
-use tokio::{fs::File,sync::{Mutex, MutexGuard}};
+use tokio::{fs::File,sync::Mutex};
 use tokio_util::io::ReaderStream;
 use std::sync::Arc;
 use super::streaming::*;
-use crate::file_manager::files::*;
+use crate::file_manager::{file_tree::*,file_utils::*};
 use crate::utils::config::Config;
 use tracing::info;
 use tower_http::services::ServeDir;
+use serde::Deserialize;
 
 /// Form data for login requests.
 #[derive(serde::Deserialize)]
@@ -32,12 +32,14 @@ pub fn create_router(file_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
         .nest_service("/static", ServeDir::new("static"))
         .route("/", static_handler("static/html/home.html"))
         .route("/login", axum::routing::post(login))
-        .route("/master", get(media_protected))
+        .route("/master", get(master_protection))
         .route("/api/master.json", get(media_json))
         .route("/api/master/{*path}", get(open))
         .route("/health", get(health_check))
         .route("/api/upload", axum::routing::post(upload_file))
+        .route("/api/delete", axum::routing::post(delete_file))
         .route("/api/update", axum::routing::post(update_file))
+        .route("/api/password_required", get(password_required))
         .fallback(static_handler("static/html/error.html"))
         .layer(CookieManagerLayer::new()) // Enables cookie management for authentication
         .layer(Extension(file_tree))      // Shares the file tree state with handlers
@@ -126,7 +128,7 @@ pub async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
             }
         }
     }
-
+    
     // Make sure we got both parts
     let (filename, data) = match file_data {
         Some(pair) => pair,
@@ -171,6 +173,30 @@ pub async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
     }
 
     (StatusCode::OK, "File uploaded").into_response()
+}
+
+#[derive(Deserialize)]
+pub struct DeleteRequest {
+    pub path: String,
+}
+
+pub async fn delete_file(
+    Json(payload): Json<DeleteRequest>,
+) -> impl IntoResponse {
+    let safe_path = match safe_path(&payload.path) {
+        Ok(p) => p,
+        Err(resp) => return resp,
+    };
+
+    if !safe_path.exists() {
+        return (StatusCode::NOT_FOUND, "File not found").into_response();
+    }
+
+    if let Err(e) = tokio::fs::remove_file(&safe_path).await {
+        return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to delete file: {e}")).into_response();
+    }
+
+    (StatusCode::OK, "File deleted").into_response()
 }
 
 /// Handles file updates (replacement) via multipart form data.
@@ -295,7 +321,8 @@ pub async fn update_file(
 
 /// Password-protected login route and create authentication cookie.
 async fn login(cookies: Cookies, Form(form): Form<LoginForm>) -> impl IntoResponse {
-    if form.password == Config::from_env().password() {
+    if form.password == Config::from_env().password().to_owned() {
+    
         let mut cookie = Cookie::new("auth", "1");
         cookie.set_path("/");
         cookie.set_max_age(cookie::time::Duration::hours(12)); // 1 day
@@ -308,8 +335,11 @@ async fn login(cookies: Cookies, Form(form): Form<LoginForm>) -> impl IntoRespon
 
 /// Checks if the user is authenticated using the cookie created by the login route.
 /// If not authenticated, redirects to the error page.
-async fn media_protected(cookies: Cookies) -> impl IntoResponse {
-    if cookies.get("auth").map(|c| c.value().to_owned()) == Some("1".to_string()) {
+async fn master_protection(cookies: Cookies) -> impl IntoResponse {
+    let password_required = !Config::from_env().password().is_empty();
+    let has_auth_cookie = cookies.get("auth").map(|c| c.value().to_owned()) == Some("1".to_string());
+
+    if !password_required || has_auth_cookie {
         let content = std::fs::read_to_string("static/html/master.html")
             .or_else(|_| std::fs::read_to_string("static/html/error.html"))
             .unwrap_or_else(|_| "<h1>Page not found</h1>".to_string());
@@ -317,4 +347,10 @@ async fn media_protected(cookies: Cookies) -> impl IntoResponse {
     } else {
         Redirect::to("static/html/error.html").into_response()
     }
+}
+
+/// Checks if a password is required for authentication.
+pub async fn password_required() -> Json<bool> {
+    let required = !Config::from_env().password().is_empty();
+    Json(required)
 }

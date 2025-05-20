@@ -46,7 +46,7 @@ function updateGrid() {
   window.location.hash = encodeURIComponent(currentPath); // Update URL hash
 }
 
-// Handles navigation, file/folder actions (open, download, update), and search filtering
+// Handles navigation, file/folder actions (open, download, update,delete), and search filtering
 function renderGrid(entry, search = "") {
   if (!entry.is_dir || !entry.children) return document.createTextNode("No master found.");
 
@@ -124,7 +124,7 @@ function renderGrid(entry, search = "") {
     item.appendChild(icon);
     item.appendChild(label);
 
-    // Button group for actions (open, download, update)
+    // Button group for actions (open, download, update,delete)
     const btnGroup = document.createElement("div");
     btnGroup.className = "flex flex-col items-center gap-2 mt-3";
 
@@ -196,6 +196,28 @@ function renderGrid(entry, search = "") {
         }
         updateInput.value = "";
       };
+
+      // Delete button
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "Delete";
+      deleteBtn.className = "px-4 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium shadow hover:bg-red-200 transition-all duration-150";
+      deleteBtn.onclick = async (e) => {
+        e.stopPropagation();
+        if (!confirm(`Are you sure you want to delete '${child.name}'?`)) return;
+        const res = await fetch(`/api/delete`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: child.path })
+        });
+        if (res.ok) {
+          alert("File deleted!");
+          fetchmasterTree();
+        } else {
+          const err = await res.text();
+          alert("Delete failed! " + err);
+        }
+      };
+      btnGroup.appendChild(deleteBtn);
     }
 
     item.appendChild(btnGroup);

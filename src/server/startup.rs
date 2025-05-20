@@ -4,7 +4,7 @@ use super::routes;
 use tokio::sync::Mutex;
 use std::sync::Arc;
 
-use crate::file_manager::scanner::scan_dir;
+use crate::file_manager::file_tree::scan_dir;
 use crate::utils::config::Config;
 use std::path::Path;
 
@@ -22,7 +22,7 @@ pub async fn start_server() {
     
     // Start file watcher in a separate async task
     tokio::spawn(async move {
-        crate::file_manager::watch::start_watcher(watcher_tree, &(file_dir.clone())).await;
+        crate::file_manager::tree_watcher::start_watcher(watcher_tree, &(file_dir.clone())).await;
     });
 
     let app = routes::create_router(file_tree.clone());

@@ -155,7 +155,7 @@ If you want RustyShare to start automatically when your system boots:
 
 You can customize the server using environment variables:
 
-* `MEDIA_DIR` — Path to your media directory (default: `./media`)
+* `FILE_DIR` — Path to your media directory (default: `./master`)
 * `PORT` — Server port (default: `3000`)
 * `PASSWORD` — Access password for the web interface (default: `changeme`)
 * `RUST_LOG` — Logging level (default: `info`)
