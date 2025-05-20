@@ -1,7 +1,7 @@
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, EventKind};
 use std::sync::{Arc, mpsc::channel};
 use tokio::sync::Mutex;
-use crate::file_manager::{scanner::scan_dir, files::FileEntry};
+use crate::file_manager::{file_tree::scan_dir, file_tree::FileEntry};
 use std::path::Path;
 use tracing::{info, error};
 
@@ -11,9 +11,9 @@ use tracing::{info, error};
 /// the entire media tree is rescanned and updated in memory.
 /// 
 /// # Arguments
-/// * `media_tree` - Shared, mutable reference to the in-memory file tree.
-/// * `media_dir` - Path to the directory to watch.
-pub async fn start_watcher(media_tree: Arc<Mutex<Option<FileEntry>>>, media_dir: &str) {
+/// * `files_tree` - Shared, mutable reference to the in-memory file tree.
+/// * `dir` - Path to the directory to watch.
+pub async fn start_watcher(tree: Arc<Mutex<Option<FileEntry>>>, dir: &str) {
     let (tx, rx) = channel();
 
     // Create a watcher that sends events to the channel
@@ -28,7 +28,7 @@ pub async fn start_watcher(media_tree: Arc<Mutex<Option<FileEntry>>>, media_dir:
 
     // Start watching the media directory recursively
     watcher
-        .watch(Path::new(media_dir), RecursiveMode::Recursive)
+        .watch(Path::new(dir), RecursiveMode::Recursive)
         .expect("Failed to watch media directory");
 
     info!("📡 Watching media directory for changes...");
@@ -39,8 +39,8 @@ pub async fn start_watcher(media_tree: Arc<Mutex<Option<FileEntry>>>, media_dir:
             // Only rescan on create, modify, or remove events
             if matches!(event.kind, EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)) {
                 info!("🔄 Change detected: rescanning media directory...");
-                let new_tree = scan_dir(Path::new(media_dir), Path::new(media_dir));
-                let mut tree_lock = media_tree.lock().await;
+                let new_tree = scan_dir(Path::new(dir), Path::new(dir));
+                let mut tree_lock = tree.lock().await;
                 *tree_lock = new_tree;
                 info!("✅ Media tree updated.");
             }

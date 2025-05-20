@@ -1,44 +1,15 @@
-use serde::Serialize;
-use mime_guess::{Mime,from_path};
+use super::file_tree::{FileEntry, FileType};
+use std::path::{Path, PathBuf};
 use std::fs;
 use chrono::{DateTime, Utc};
-use tokio::fs::File;
-use std::path::PathBuf;
-use tokio::sync::Mutex;
-use std::sync::Arc;
-use axum::{ 
-    response::{ IntoResponse, Response}, 
-    http::StatusCode};
+use axum::{
+    response::{IntoResponse, Response},
+    http::StatusCode,
+};
+use mime_guess::{Mime,from_path};
 use crate::utils::config::Config;
-use std::path::Path;
+use tokio::fs::File;
 
-/// Represents a file or directory in the media tree.
-#[derive(Debug, Serialize, Clone)]
-pub struct FileEntry {
-    pub name: String,
-    pub path: String,
-    pub is_dir: bool,
-    pub file_type: FileType,
-    pub size: Option<u64>,
-    pub modified: Option<String>,
-    pub children: Option<Vec<FileEntry>>,
-    pub is_browser_supported: bool,
-    #[serde(skip_serializing)] // Used for locking, not sent to client
-    pub lock: Arc<Mutex<()>>
-}
-
-/// Enum for categorizing file types.
-#[derive(Debug, PartialEq, Eq, Clone, Copy,Serialize)]
-pub enum FileType {
-    Video,
-    Audio,
-    Image,
-    Other,
-}
-
-//------------------- Helper functions to get file properties -------------------//
-
-/// Detects the file type based on extension.
 pub fn detect_file_type<P : AsRef<Path>>(path: P, is_dir: bool) -> FileType {
     let path = path.as_ref();
     if is_dir {

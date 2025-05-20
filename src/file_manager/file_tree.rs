@@ -1,23 +1,41 @@
+use serde::Serialize;
 use std::fs;
-use std::path::Path;
 use tokio::sync::Mutex;
 use std::sync::Arc;
+use std::path::Path;
+use super::file_utils::*;
 
-use super::files::*;
+/// Represents a file or directory in the media tree.
+#[derive(Debug, Serialize, Clone)]
+pub struct FileEntry {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+    pub file_type: FileType,
+    pub size: Option<u64>,
+    pub modified: Option<String>,
+    pub children: Option<Vec<FileEntry>>,
+    pub is_browser_supported: bool,
+    #[serde(skip_serializing)] // Used for locking, not sent to client
+    pub lock: Arc<Mutex<()>>
+}
 
-/// Recursively scans a directory and builds a FileEntry tree.
-/// 
-/// - `root_dir`: The root directory for relative path calculation.
-/// - `path`: The current file or directory to scan.
-/// 
-/// Returns `Some(FileEntry)` if successful, or `None` if the entry should be skipped.
+/// Enum for categorizing file types.
+#[derive(Debug, PartialEq, Eq, Clone, Copy,Serialize)]
+pub enum FileType {
+    Video,
+    Audio,
+    Image,
+    Other,
+}
+
 pub fn scan_dir<P: AsRef<Path>>(root_dir: &Path, path: P) -> Option<FileEntry> {
     let path = path.as_ref();
     let is_browser_supported = is_browser_supported(path);
     let name = path.file_name()?.to_str()?.to_string();
 
     // Skip Windows alternate data streams and similar artifacts
-    if name.contains("Zone.Identifier") {
+    if name.contains("Zone.Identifier") || name == ".gitkeep" {
         return None;
     }
 
@@ -71,3 +89,5 @@ pub fn scan_dir<P: AsRef<Path>>(root_dir: &Path, path: P) -> Option<FileEntry> {
         })
     }
 }
+
+
