@@ -66,7 +66,7 @@ export function renderGrid(entry, currentPath, setPath, refreshTree, search = ""
         "absolute z-10 left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-gray-900 text-white text-xs rounded-lg shadow-lg px-4 py-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200";
       tooltip.style.whiteSpace = "pre-line";
       tooltip.innerText =
-        `Name: ${child.name}\nSize: ${child.size ? formatSize(child.size) : "?"}\nModified: ${child.modified ? formatDate(child.modified) : "?"}`;
+        `Name: ${child.name}\nSize: ${child.size ? formatSize(child.size) : "?"}\nLast Modified: ${child.modified ? formatDate(child.modified) : "?"}`;
       item.appendChild(tooltip);
     }
 

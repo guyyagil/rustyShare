@@ -46,6 +46,14 @@ document.getElementById("uploadBtn").addEventListener("click", () => {
   if (uploadForm.style.display === "none" || uploadForm.style.display === "") {
     uploadForm.style.display = "flex";
     createForm.style.display = "none";
+    
+    // Scroll to the form after a brief delay to allow for display change
+    setTimeout(() => {
+      uploadForm.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+    }, 100);
   } else {
     uploadForm.style.display = "none";
   }
@@ -59,6 +67,14 @@ document.getElementById("createFolderBtn").addEventListener("click", () => {
   if (createForm.style.display === "none" || createForm.style.display === "") {
     createForm.style.display = "flex";
     uploadForm.style.display = "none";
+    
+    // Scroll to the form after a brief delay to allow for display change
+    setTimeout(() => {
+      createForm.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+    }, 100);
   } else {
     createForm.style.display = "none";
   }
