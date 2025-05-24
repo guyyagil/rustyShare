@@ -1,5 +1,9 @@
 # RustyShare
 
+<div align="center">
+  <img src="static/logo/logo-transparent.png" alt="RustyShare Logo" width="300"/>
+</div>
+
 ![Rust](https://img.shields.io/badge/Rust-Stable-orange?logo=rust)
 ![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20macOS-informational)
 
