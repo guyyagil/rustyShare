@@ -19,6 +19,7 @@ use tracing::info;
 use tower_http::services::ServeDir;
 use serde::Deserialize;
 
+
 /// Form data for login requests.
 #[derive(serde::Deserialize)]
 struct LoginForm {
@@ -39,6 +40,7 @@ pub fn create_router(file_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
         .route("/api/upload", axum::routing::post(upload_file))
         .route("/api/delete", axum::routing::post(delete_file))
         .route("/api/update", axum::routing::post(update_file))
+        .route("/api/create_folder", axum::routing::post(create_folder))
         .route("/api/password_required", get(password_required))
         .fallback(static_handler("static/html/error.html"))
         .layer(CookieManagerLayer::new()) // Enables cookie management for authentication
@@ -50,8 +52,7 @@ pub fn create_router(file_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
 /// Used for routes that do not require dynamic logic.
 fn static_handler(path: &'static str) -> MethodRouter {
     get(move || async move  {
-        let content = std::fs::read_to_string(path)
-            .unwrap_or_else(|_| panic!("⚠️ Critical file not found: {}", path));
+        let content = std::fs::read_to_string(path).unwrap();
         Html(content)
     })
 }
@@ -181,22 +182,42 @@ pub struct DeleteRequest {
 }
 
 pub async fn delete_file(
+    Extension(file_tree): Extension<Arc<Mutex<Option<FileEntry>>>>,
     Json(payload): Json<DeleteRequest>,
 ) -> impl IntoResponse {
-    let safe_path = match safe_path(&payload.path) {
-        Ok(p) => p,
-        Err(resp) => return resp,
+    // Find the file entry in the in-memory tree before deleting
+    let entry_arc = {
+        let mut tree_guard = file_tree.lock().await;
+        let tree = tree_guard.as_mut().unwrap();
+        // Clone the Arc to the entry if found
+        if let Some(entry) = find_entry(tree, &payload.path) {
+            Some(entry.clone())
+        } else {
+            None
+        }
     };
 
-    if !safe_path.exists() {
-        return (StatusCode::NOT_FOUND, "File not found").into_response();
-    }
+    if let Some(entry) = entry_arc {
+        // Lock the file entry to prevent concurrent access
+        let _file_guard = entry.lock.lock().await;
 
-    if let Err(e) = tokio::fs::remove_file(&safe_path).await {
-        return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to delete file: {e}")).into_response();
-    }
+        let safe_path = match safe_path(&payload.path) {
+            Ok(p) => p,
+            Err(resp) => return resp,
+        };
 
-    (StatusCode::OK, "File deleted").into_response()
+        if !safe_path.exists() {
+            return (StatusCode::NOT_FOUND, "File not found").into_response();
+        }
+
+        if let Err(e) = tokio::fs::remove_file(&safe_path).await {
+            return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to delete file: {e}")).into_response();
+        }
+
+        (StatusCode::OK, "File deleted").into_response()
+    } else {
+        (StatusCode::NOT_FOUND, "File not found in media tree").into_response()
+    }
 }
 
 /// Handles file updates (replacement) via multipart form data.
@@ -353,4 +374,28 @@ async fn master_protection(cookies: Cookies) -> impl IntoResponse {
 pub async fn password_required() -> Json<bool> {
     let required = !Config::from_env().password().is_empty();
     Json(required)
+}
+
+#[derive(Deserialize)]
+pub struct CreateFolderRequest {
+    pub path: String,
+}
+
+pub async fn create_folder(
+    Json(payload): Json<CreateFolderRequest>,
+) -> impl IntoResponse {
+    let safe_path = match safe_path(&payload.path) {
+        Ok(p) => p,
+        Err(resp) => return resp,
+    };
+
+    if safe_path.exists() {
+        return (StatusCode::CONFLICT, "Folder already exists").into_response();
+    }
+
+    if let Err(e) = tokio::fs::create_dir_all(&safe_path).await {
+        return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to create folder: {e}")).into_response();
+    }
+
+    (StatusCode::OK, "Folder created").into_response()
 }
