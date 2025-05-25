@@ -1,69 +1,32 @@
 use axum::{
-    body::Body, 
-    extract::{DefaultBodyLimit, Extension, Form, Path},
-    http::{header, StatusCode}, 
-    response::{Html, IntoResponse, Redirect, Response, Json}, 
-    routing::{get, MethodRouter}, 
-    Router
+    body::Body,
+    extract::{Extension, Path},
+    http::{header, StatusCode},
+    response::{IntoResponse, Response, Json},
 };
-use axum_extra::extract::{Multipart,TypedHeader};
-use tower_cookies::{Cookie, CookieManagerLayer, Cookies};
+use axum_extra::extract::{Multipart, TypedHeader};
 use headers::Range;
-use tokio::{fs::File,sync::Mutex};
+use tokio::{fs::File, sync::Mutex};
 use tokio_util::io::ReaderStream;
 use std::sync::Arc;
-use super::streaming::*;
-use crate::file_manager::{file_tree::*,file_utils::*};
-use crate::utils::config::Config;
-use tracing::info;
-use tower_http::services::ServeDir;
 use serde::Deserialize;
+use tracing::info;
 
+use crate::file_manager::{file_tree::*, file_utils::*};
+use crate::server::file_operations::build_range_response;
 
-/// Form data for login requests.
-#[derive(serde::Deserialize)]
-struct LoginForm {
-    password: String,
+#[derive(Deserialize)]
+pub struct DeleteRequest {
+    pub path: String,
 }
 
-/// Creates and configures the application router with all routes.
-/// Accepts a shared `file_tree` state for media file management.
-pub fn create_router(file_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
-    Router::new()
-        .nest_service("/static", ServeDir::new("static"))
-        .route("/", static_handler("static/html/home.html"))
-        .route("/login", axum::routing::post(login))
-        .route("/master", get(master_protection))
-        .route("/api/master.json", get(media_json))
-        .route("/api/master/{*path}", get(open))
-        .route("/health", get(health_check))
-        .route("/api/upload", axum::routing::post(upload_file))
-        .route("/api/delete", axum::routing::post(delete_file))
-        .route("/api/update", axum::routing::post(update_file))
-        .route("/api/create_folder", axum::routing::post(create_folder))
-        .route("/api/password_required", get(password_required))
-        .fallback(static_handler("static/html/error.html"))
-        .layer(CookieManagerLayer::new()) // Enables cookie management for authentication
-        .layer(Extension(file_tree))      // Shares the file tree state with handlers
-        .layer(DefaultBodyLimit::max(1024 * 1024 * 1024)) // 1GB upload limit
-}
-
-/// Generic handler for serving static HTML content.
-/// Used for routes that do not require dynamic logic.
-fn static_handler(path: &'static str) -> MethodRouter {
-    get(move || async move  {
-        let content = std::fs::read_to_string(path).unwrap();
-        Html(content)
-    })
-}
-
-/// Simple health check endpoint.
-async fn health_check() -> StatusCode {
-    StatusCode::OK
+#[derive(Deserialize)]
+pub struct CreateFolderRequest {
+    pub path: String,
 }
 
 /// Returns the current file tree as JSON.
-async fn media_json(
+pub async fn media_json(
     Extension(file_tree): Extension<Arc<Mutex<Option<FileEntry>>>>,
 ) -> Json<Option<FileEntry>> {
     let tree = file_tree.lock().await;
@@ -71,32 +34,50 @@ async fn media_json(
 }
 
 /// Opens a file for browser viewing or streaming (supports range requests).
-async fn open(Path(path): Path<String>, range: Option<TypedHeader<Range>>) -> Response {
+pub async fn open(
+    Path(path): Path<String>,
+    range: Option<TypedHeader<Range>>,
+    Extension(file_tree): Extension<Arc<Mutex<Option<FileEntry>>>>,
+) -> Response {
     let safe_path = match safe_path(&path) {
         Ok(p) => p,
         Err(resp) => return resp,
     };
 
-    let file_path = safe_path.clone(); 
-    let mime = get_mime_type(&file_path);
-    let file = match File::open(&file_path).await {
-        Ok(f) => f,
-        Err(_) => return (StatusCode::NOT_FOUND, "File not found").into_response(),
+    // Find the file entry in the in-memory tree
+    let entry_arc = {
+        let mut tree_guard = file_tree.lock().await;
+        let tree = tree_guard.as_mut().unwrap();
+        if let Some(entry) = find_entry(tree, &path) {
+            Some(entry.clone())
+        } else {
+            None
+        }
     };
-    
-    let file_size = file_size(&file).await;
 
-    // If a Range header is present, build a partial content response
-    if let Some(TypedHeader(range)) = range {
-        return build_range_response(file, file_size, &mime, range).await;
-    }  else {
-        // No range header, stream the whole file
-        let stream = ReaderStream::new(file);
-        Response::builder()
-            .header(header::CONTENT_TYPE, mime.as_ref())
-            .header(header::ACCEPT_RANGES, "bytes")
-            .body(Body::from_stream(stream))
-            .unwrap()
+    if let Some(entry) = entry_arc {
+        // Acquire the file lock before reading
+        let _file_guard = entry.lock.lock().await;
+        // Now open the file as before
+        let file_path = safe_path.clone();
+        let mime = get_mime_type(&file_path);
+        let file = match File::open(&file_path).await {
+            Ok(f) => f,
+            Err(_) => return (StatusCode::NOT_FOUND, "File not found").into_response(),
+        };
+        let file_size = file_size(&file).await;
+        if let Some(TypedHeader(range)) = range {
+            return build_range_response(file, file_size, &mime, range).await;
+        } else {
+            let stream = ReaderStream::new(file);
+            Response::builder()
+                .header(header::CONTENT_TYPE, mime.as_ref())
+                .header(header::ACCEPT_RANGES, "bytes")
+                .body(Body::from_stream(stream))
+                .unwrap()
+        }
+    } else {
+        return (StatusCode::NOT_FOUND, "File not found").into_response();
     }
 }
 
@@ -129,7 +110,7 @@ pub async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
             }
         }
     }
-    
+
     // Make sure we got both parts
     let (filename, data) = match file_data {
         Some(pair) => pair,
@@ -174,11 +155,6 @@ pub async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
     }
 
     (StatusCode::OK, "File uploaded").into_response()
-}
-
-#[derive(Deserialize)]
-pub struct DeleteRequest {
-    pub path: String,
 }
 
 pub async fn delete_file(
@@ -338,47 +314,6 @@ pub async fn update_file(
     } else {
         return (StatusCode::NOT_FOUND, "File not found in media tree").into_response();
     }
-}
-
-/// Password-protected login route and create authentication cookie.
-async fn login(cookies: Cookies, Form(form): Form<LoginForm>) -> impl IntoResponse {
-    if form.password == Config::from_env().password().to_owned() {
-    
-        let mut cookie = Cookie::new("auth", "1");
-        cookie.set_path("/");
-        cookie.set_max_age(cookie::time::Duration::hours(12)); // 1 day
-        cookies.add(cookie);
-        Redirect::to("/master").into_response()
-    } else {
-        (StatusCode::UNAUTHORIZED, "Wrong access code").into_response()
-    }
-}
-
-/// Checks if the user is authenticated using the cookie created by the login route.
-/// If not authenticated, redirects to the error page.
-async fn master_protection(cookies: Cookies) -> impl IntoResponse {
-    let password_required = !Config::from_env().password().is_empty();
-    let has_auth_cookie = cookies.get("auth").map(|c| c.value().to_owned()) == Some("1".to_string());
-
-    if !password_required || has_auth_cookie {
-        let content = std::fs::read_to_string("static/html/master.html")
-            .or_else(|_| std::fs::read_to_string("static/html/error.html"))
-            .unwrap_or_else(|_| "<h1>Page not found</h1>".to_string());
-        Html(content).into_response()
-    } else {
-        Redirect::to("static/html/error.html").into_response()
-    }
-}
-
-/// Checks if a password is required for authentication.
-pub async fn password_required() -> Json<bool> {
-    let required = !Config::from_env().password().is_empty();
-    Json(required)
-}
-
-#[derive(Deserialize)]
-pub struct CreateFolderRequest {
-    pub path: String,
 }
 
 pub async fn create_folder(

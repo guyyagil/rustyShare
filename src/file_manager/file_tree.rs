@@ -17,7 +17,8 @@ pub struct FileEntry {
     pub children: Option<Vec<FileEntry>>,
     pub is_browser_supported: bool,
     #[serde(skip_serializing)] // Used for locking, not sent to client
-    pub lock: Arc<Mutex<()>>
+    pub lock: Arc<Mutex<()>>,
+    in_use : bool,
 }
 
 /// Enum for categorizing file types.
@@ -29,32 +30,32 @@ pub enum FileType {
     Other,
 }
 
-pub fn scan_dir<P: AsRef<Path>>(root_dir: &Path, path: P) -> Option<FileEntry> {
-    let path = path.as_ref();
-    let is_browser_supported = is_browser_supported(path);
-    let name = path.file_name()?.to_str()?.to_string();
+pub fn scan_dir<P: AsRef<Path>>(root_dir: &Path, curr_path: P) -> Option<FileEntry> {
+    let curr_path = curr_path.as_ref();
+    let is_browser_supported = is_browser_supported(curr_path);
+    let name = curr_path.file_name()?.to_str()?.to_string();
 
     // Skip Windows alternate data streams and similar artifacts
     if name.contains("Zone.Identifier") || name == ".gitkeep" {
         return None;
     }
 
-    // Compute the path relative to the root directory for API/UI use
-    let rel_path = path.strip_prefix(root_dir).unwrap_or(path);
+    // Compute the curr_path relative to the root directory for API/UI use
+    let rel_path = curr_path.strip_prefix(root_dir).unwrap_or(curr_path);
     let path_str = rel_path.display().to_string();
 
     
-    let size = get_file_size(path);
-    let modified = get_modified_time(path);
+    let size = get_file_size(curr_path);
+    let modified = get_modified_time(curr_path);
 
-    let metadata = fs::metadata(path).ok()?;
+    let metadata = fs::metadata(curr_path).ok()?;
     let is_dir = metadata.is_dir();
-    let file_type = detect_file_type(path, is_dir);
+    let file_type = detect_file_type(curr_path, is_dir);
 
     if is_dir {
         // If directory, recursively scan its components
         let mut children = vec![];
-        if let Ok(entries) = fs::read_dir(path) {
+        if let Ok(entries) = fs::read_dir(curr_path) {
             for entry in entries.flatten() {
                 let entry_path = entry.path();
                 if let Some(child) = scan_dir(root_dir, entry_path) {
@@ -72,7 +73,8 @@ pub fn scan_dir<P: AsRef<Path>>(root_dir: &Path, path: P) -> Option<FileEntry> {
             size,
             modified,
             is_browser_supported,
-            lock: Arc::new(Mutex::new(())), // Per-entry lock for concurrency
+            lock: Arc::new(Mutex::new(())),
+            in_use: false,
         })
     } else {
         // If file, just create the entry
@@ -86,8 +88,10 @@ pub fn scan_dir<P: AsRef<Path>>(root_dir: &Path, path: P) -> Option<FileEntry> {
             modified,
             is_browser_supported,
             lock: Arc::new(Mutex::new(())), // Per-entry lock for concurrency
-        })
+            in_use: false,
+        })  
     }
+    
 }
 
 

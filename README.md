@@ -24,6 +24,7 @@ Host a master PC as a server and let any device on your network access, upload, 
 * 🔄 **Real-time media directory monitoring**
 * 🚀 **Runs as a system service** (Linux)
 * 🔒 **Access your files securely on your local network**
+* 🗄️ **Use as external local storage** for your LAN devices—store, access, and manage files from any device on your network just like a shared drive
 
 ---
 
@@ -211,14 +212,24 @@ rustyShare/
 │   ├── main.rs                  # Application entry point
 │   ├── server/                  # Server-related code
 │   │   ├── mod.rs               # Server module definition
-│   │   ├── routes.rs            # Route handlers (web endpoints)
 │   │   ├── startup.rs           # Server startup logic
-│   │   └── streaming.rs         # Media streaming logic
-│   ├── fileManager/             # File management logic
+│   │   ├── file_operations/     # File operations module
+│   │   │   ├── mod.rs           # File operations module definition
+│   │   │   └── streaming.rs     # Media streaming logic
+│   │   └── routing/             # Modular routing system
+│   │       ├── mod.rs           # Routing module definition
+│   │       ├── router.rs        # Main router configuration
+│   │       └── handlers/        # Route handlers organized by domain
+│   │           ├── mod.rs       # Handlers module definition
+│   │           ├── auth.rs      # Authentication & authorization
+│   │           ├── file_operations.rs  # File management endpoints
+│   │           ├── static_content.rs   # Static content serving
+│   │           └── health.rs    # Health check endpoint
+│   ├── file_manager/            # File management logic
 │   │   ├── mod.rs               # File manager module definition
-│   │   ├── files.rs             # File operations and helpers
-│   │   ├── scanner.rs           # Directory scanning logic
-│   │   └── watch.rs             # Directory watching logic
+│   │   ├── file_tree.rs         # File tree operations
+│   │   ├── file_utils.rs        # File utility functions
+│   │   └── tree_watcher.rs      # Directory watching logic
 │   └── utils/                   # Utility functions
 │       ├── mod.rs               # Utils module definition
 │       └── config.rs            # Configuration handling

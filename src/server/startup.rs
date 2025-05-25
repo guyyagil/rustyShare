@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 use tracing::info;
-use super::routes;
+use super::routing;
 use tokio::sync::Mutex;
 use std::sync::Arc;
 
@@ -25,7 +25,7 @@ pub async fn start_server() {
         crate::file_manager::tree_watcher::start_watcher(watcher_tree, &(file_dir.clone())).await;
     });
 
-    let app = routes::create_router(file_tree.clone());
+    let app = routing::create_router(file_tree.clone());
     let port: u16 = config.port().parse().unwrap();
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
 
