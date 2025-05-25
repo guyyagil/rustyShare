@@ -320,7 +320,7 @@ pub async fn update_file(
     }
 }
 
-pub async fn create_folder(
+pub async fn create_folder (
     Json(payload): Json<CreateFolderRequest>,
 ) -> impl IntoResponse {
     let safe_path = match safe_path(&payload.path) {
@@ -338,6 +338,7 @@ pub async fn create_folder(
 
     (StatusCode::OK, "Folder created").into_response()
 }
+
 pub async fn build_range_response(
     mut file: File,
     file_size: u64,
