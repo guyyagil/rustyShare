@@ -47,7 +47,39 @@ Host a master PC as a server and let any device on your network access, upload, 
 
 ---
 
-## Installation
+## 🚀 Quick Start (Recommended)
+
+You can install and run RustyShare with a single command using the provided installer script:
+
+```bash
+# Download and run the installer
+curl -sSL https://raw.githubusercontent.com/guyyagil/rustyShare/main/scripts/installer.sh | bash
+```
+
+Or, download and inspect the script first: 
+
+```bash
+# Download the installer
+wget https://raw.githubusercontent.com/guyyagil/rustyShare/main/scripts/installer.sh
+chmod +x installer.sh
+./installer.sh
+```
+
+**Important:** Run the installer as a regular user (not with sudo). The script will prompt for sudo when needed.
+
+The installer will:
+- Install system dependencies (curl, git, build tools)
+- Install Rust if not already installed
+- Download and build RustyShare from source
+- Prompt you for configuration (shared directory, port, password, etc.)
+- Set up RustyShare as a systemd service (auto-starts on boot)
+- Start the server automatically
+
+---
+
+## 🛠️ Manual Installation
+
+If you prefer to install manually:
 
 ```bash
 # Clone the repository
@@ -62,132 +94,66 @@ cargo build --release
 
 ---
 
-## Usage
+## 🧹 Uninstall
 
-### Quick Start
+To completely remove RustyShare, use the provided uninstaller:
 
 ```bash
-# Run the server directly
-cargo run
+curl -sSL https://raw.githubusercontent.com/guyyagil/rustyShare/main/scripts/uninstaller.sh | sudo bash
 ```
 
-### Running as a Service (Optional)
+Or, if you already have the script:
 
-> ℹ️ System service setup is currently supported only on Linux.
+```bash
+# From the rustyShare directory
+sudo ./scripts/uninstaller.sh
+```
 
-If you want RustyShare to start automatically when your system boots:
+---
 
-1. **Create systemd service file:**
-   Create `/etc/systemd/system/rustyshare.service` with:
+## 🔧 Configuration
 
-   ```ini
-   [Unit]
-   Description=RustyShare File Sharing Server
-   After=network.target
+RustyShare uses environment variables for configuration. These are set during installation but can be modified later:
 
-   [Service]
-   Type=simple
-   User=YOUR_USERNAME
-   WorkingDirectory=/absolute/path/to/rustyShare
-   ExecStart=/absolute/path/to/rustyShare/target/release/rustyshare
-   Restart=always
-   RestartSec=3
+- **FILE_DIR**: Directory where shared files are stored (default: `/var/lib/rustyshare`)
+- **PORT**: Server port (default: `3000`)
+- **PASSWORD**: Optional password for file access (default: none)
+- **RUST_LOG**: Log level (default: `info`)
 
-   [Install]
-   WantedBy=multi-user.target
-   ```
+Configuration is stored in `/etc/rustyshare.env`. To modify:
 
-   Use `pwd` inside your project directory to find the correct absolute path.
+```bash
+sudo nano /etc/rustyshare.env
+sudo systemctl restart rustyshare
+```
 
-2. **Enable and start the service:**
+---
 
-   ```bash
-   sudo systemctl enable rustyshare
-   sudo systemctl start rustyshare
-   ```
+## Usage
 
-3. **Check service status:**
+- After installation, access RustyShare in your browser at:  
+  `http://localhost:3000`  
+  or  
+  `http://<your-server-ip>:3000` from any device on your LAN.
 
-   ```bash
-   systemctl status rustyshare
-   ```
-
-4. **View logs:**
-
-   ```bash
-   journalctl -u rustyshare -f
-   ```
-
-### Accessing the Server
-
-1. **On the same machine:**
-
-   * Open your browser and go to [http://localhost:3000](http://localhost:3000)
-
-2. **From another device on your LAN:**
-
-   * Open your browser and go to `http://<your-server-ip>:3000`
-   * Replace `<your-server-ip>` with your computer's IP address
-   * To find your IP address on Linux, run:
-
-     ```bash
-     ip a | grep inet
-     ```
-
-   * **Recommendation:** For easier and more reliable access from other devices, consider setting a static IP address for your server machine on your router or network settings. This way, you can always access RustyShare using the same address (e.g., `http://192.168.1.100:3000`) without needing to check for changes.
-
-### Managing Files
-
-1. **Add files:**
-
-   * Place your files in the media directory or upload them via the web interface
-   * Files are automatically detected and available in the web interface
-
-2. **Real-time Updates:**
-
-   * New files appear automatically
-   * Removed files are removed from the listing
-   * Modified files are updated in real-time
-   * No manual refresh required
-
-3. **Search:**
-
-   * Use the search bar at the top of the interface to quickly find files and folders by name
+- To manage the service:
+  ```bash
+  sudo systemctl status rustyshare
+  sudo systemctl restart rustyshare
+  sudo systemctl stop rustyshare
+  ```
 
 ---
 
 ## Configuration
 
-You can customize the server using environment variables:
+The installer will prompt you for:
+- **Files directory** (`FILE_DIR`)
+- **Server port** (`PORT`)
+- **Password** (`PASSWORD`)
+- **Log level** (`RUST_LOG`)
 
-* `FILE_DIR` — Path to your media directory (default: `./master`)
-* `PORT` — Server port (default: `3000`)
-* `PASSWORD` — Access password for the web interface (default: `changeme`)
-* `RUST_LOG` — Logging level (default: `info`)
-
-### Examples
-
-1. **Running with custom port and password:**
-
-   ```bash
-   PORT=8080 PASSWORD=your_secure_password cargo run
-   ```
-
-2. **Running with custom media directory:**
-
-   ```bash
-   MEDIA_DIR=/path/to/your/media cargo run
-   ```
-
-3. **System service with custom configuration:**
-   Add to your service file:
-
-   ```ini
-   [Service]
-   Environment="MEDIA_DIR=/path/to/your/media"
-   Environment="PORT=8080"
-   Environment="PASSWORD=your_secure_password"
-   ```
+You can later edit these in `/etc/rustyshare.env` and restart the service.
 
 ---
 
