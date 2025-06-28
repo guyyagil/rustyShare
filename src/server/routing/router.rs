@@ -13,13 +13,16 @@ use super::handlers::*;
 
 /// Creates and configures the application router with all routes.
 /// Accepts a shared `file_tree` state for media file management.
-pub fn create_router(file_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
+pub fn create_router(
+    file_tree: Arc<Mutex<Option<FileEntry>>>,
+    tree_tx: tokio::sync::broadcast::Sender<()>,
+) -> Router {
     Router::new()
         .nest_service("/static", ServeDir::new("static"))
         .route("/", static_handler("static/html/home.html"))
         .route("/login", axum::routing::post(login))
         .route("/master", get(master_protection))
-        .route("/api/master.json", get(media_json))
+        .route("/api/master.json", get(master_json))
         .route("/api/master/{*path}", get(open))
         .route("/health", get(health_check))
         .route("/api/upload", axum::routing::post(upload_file))
@@ -27,9 +30,11 @@ pub fn create_router(file_tree: Arc<Mutex<Option<FileEntry>>>) -> Router {
         .route("/api/update", axum::routing::post(update_file))
         .route("/api/create_folder", axum::routing::post(create_folder))
         .route("/api/password_required", get(password_required))
+        .route("/events/tree", get(tree_events)) // <-- Add this line
         .fallback(static_handler("static/html/error.html"))
         .layer(CookieManagerLayer::new()) // Enables cookie management for authentication
         .layer(axum::extract::Extension(file_tree)) // Shares the file tree state with handlers
+        .layer(axum::extract::Extension(tree_tx))
         .layer(DefaultBodyLimit::max(1024 * 1024 * 1024)) // 1GB upload limit
 }
 

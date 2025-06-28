@@ -13,7 +13,11 @@ use tracing::{info, error};
 /// # Arguments
 /// * `files_tree` - Shared, mutable reference to the in-memory file tree.
 /// * `dir` - Path to the directory to watch.
-pub async fn start_watcher(tree: Arc<Mutex<Option<FileEntry>>>, dir: &str) {
+pub async fn start_watcher(
+    tree: Arc<Mutex<Option<FileEntry>>>,
+    dir: &str,
+    tree_tx: tokio::sync::broadcast::Sender<()>, // <-- Add this argument
+) {
     let (tx, rx) = channel();
 
     // Create a watcher that sends events to the channel
@@ -43,6 +47,7 @@ pub async fn start_watcher(tree: Arc<Mutex<Option<FileEntry>>>, dir: &str) {
                 let mut tree_lock = tree.lock().await;
                 *tree_lock = new_tree;
                 info!("✅ Media tree updated.");
+                let _ = tree_tx.send(()); // <-- Notify SSE clients
             }
         } else if let Err(e) = res {
             error!("Watcher channel error: {:?}", e);

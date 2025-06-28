@@ -9,12 +9,10 @@ document.addEventListener('DOMContentLoaded', async function() {
   const res = await fetch('/api/password_required');
   const passwordRequired = await res.json();
 
-  if (getCookie('auth') === '1') {
-    window.location.href = '/master';
-  } else if (!passwordRequired) {
+  if ((getCookie('auth') === '1') || (!passwordRequired)) {
     window.location.href = '/master';
   } else {
-    // Only show the login form if password is required
+    // Show login form if password is required
     loginContainer.style.display = '';
     document.getElementById('loginForm').onsubmit = async function(e) {
       e.preventDefault();

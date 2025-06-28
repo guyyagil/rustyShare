@@ -10,13 +10,17 @@ use tokio::{
     fs::File, 
     sync::Mutex,
     io::{AsyncSeekExt, SeekFrom, AsyncReadExt},
+    sync::broadcast::Sender
 };
 use tokio_util::io::ReaderStream;
 use std::sync::Arc;
 use serde::Deserialize;
 use tracing::info;
 use mime_guess::mime;
-
+use axum::response::sse::{Sse, Event};
+use futures_util::stream;
+use std::convert::Infallible;
+use futures_core::Stream;
 use crate::file_manager::{file_tree::*, file_utils::*};
 
 #[derive(Deserialize)]
@@ -30,9 +34,9 @@ pub struct CreateFolderRequest {
 }
 
 /// Returns the current file tree as JSON.
-pub async fn media_json(
-    Extension(file_tree): Extension<Arc<Mutex<Option<FileEntry>>>>,
-) -> Json<Option<FileEntry>> {
+pub async fn master_json(
+    Extension(file_tree): Extension<Arc<Mutex<Option<FileEntry>>>>) 
+    -> Json<Option<FileEntry>> {
     let tree = file_tree.lock().await;
     Json(tree.clone())
 }
@@ -86,7 +90,10 @@ pub async fn open(
 }
 
 /// Handles file uploads via multipart form data.
-pub async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
+pub async fn upload_file(
+    Extension(tree_tx): Extension<Sender<()>>,
+    mut multipart: Multipart
+) -> impl IntoResponse {
     let mut target_path: Option<String> = None;
     let mut file_data: Option<(String, bytes::Bytes)> = None;
 
@@ -157,6 +164,7 @@ pub async fn upload_file(mut multipart: Multipart) -> impl IntoResponse {
     if let Err(e) = tokio::fs::write(&filepath, &data).await {
         return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to save file: {e}")).into_response();
     }
+
 
     (StatusCode::OK, "File uploaded").into_response()
 }
@@ -394,5 +402,34 @@ pub async fn build_range_response(
         // No valid range found
         (StatusCode::RANGE_NOT_SATISFIABLE, "Invalid range").into_response()
     }
+}
+
+
+
+
+pub async fn tree_events(
+    Extension(tree_tx): Extension<Sender<()>>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    use tracing::info;
+    info!("🌲 [SSE] New client connected to /events/tree");
+    let mut rx = tree_tx.subscribe();
+    let stream = futures_util::stream::unfold((false, rx), move |(mut sent_initial, mut rx)| async move {
+        if !sent_initial {
+            sent_initial = true;
+            // Send an initial event to trigger the first refresh
+            return Some((Ok(Event::default().data("init")), (sent_initial, rx)));
+        }
+        match rx.recv().await {
+            Ok(_) => {
+                info!("🌲 [SSE] Sending update event to client");
+                Some((Ok(Event::default().data("update")), (sent_initial, rx)))
+            },
+            Err(e) => {
+                info!("🌲 [SSE] SSE stream ended: {:?}", e);
+                None
+            }
+        }
+    });
+    Sse::new(stream)
 }
 

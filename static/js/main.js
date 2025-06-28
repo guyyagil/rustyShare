@@ -32,22 +32,16 @@ document.getElementById("uploadForm").onsubmit = async function (e) {
   const formData = new FormData(this);
   const res = await uploadFile(formData, currentPath);
   alert(res.ok ? "Upload successful!" : "Upload failed! " + await res.text());
-  refreshTree();
 };
 
 document.getElementById("searchInput").addEventListener("input", updateGrid);
 
-// Add event listeners for the integrated buttons
 document.getElementById("uploadBtn").addEventListener("click", () => {
   const uploadForm = document.getElementById("uploadForm");
   const createForm = document.getElementById("createFolderForm");
-  
-  // Toggle upload form and hide create form
   if (uploadForm.style.display === "none" || uploadForm.style.display === "") {
     uploadForm.style.display = "flex";
     createForm.style.display = "none";
-    
-    // Scroll to the form after a brief delay to allow for display change
     setTimeout(() => {
       uploadForm.scrollIntoView({ 
         behavior: 'smooth', 
@@ -62,13 +56,9 @@ document.getElementById("uploadBtn").addEventListener("click", () => {
 document.getElementById("createFolderBtn").addEventListener("click", () => {
   const uploadForm = document.getElementById("uploadForm");
   const createForm = document.getElementById("createFolderForm");
-  
-  // Toggle create form and hide upload form
   if (createForm.style.display === "none" || createForm.style.display === "") {
     createForm.style.display = "flex";
     uploadForm.style.display = "none";
-    
-    // Scroll to the form after a brief delay to allow for display change
     setTimeout(() => {
       createForm.scrollIntoView({ 
         behavior: 'smooth', 
@@ -88,19 +78,23 @@ document.addEventListener("DOMContentLoaded", () => {
       const input = document.getElementById("newFolderName");
       const folderName = input.value.trim();
       if (!folderName) return;
-      // Use the module-scoped currentPath variable
       const path = currentPath ? `${currentPath}/${folderName}` : folderName;
       const res = await createFolder(path);
       if (res.ok) {
         alert("Folder created!");
         input.value = "";
-        refreshTree();
       } else {
         alert("Failed to create folder: " + await res.text());
       }
     };
   }
+
 });
 
-refreshTree();
-setInterval(refreshTree, 5000);
+// SSE auto-refresh
+if (!!window.EventSource) {
+  const evtSource = new EventSource("/events/tree");
+  evtSource.onmessage = function(event) {
+    refreshTree();
+  };
+}
